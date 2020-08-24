@@ -1,0 +1,12 @@
+---
+title: "World Leaders Lifespan"
+author: "Ethan Shen"
+date: "8/23/2020"
+output: html_document
+---
+
+```{r}
+load("Leaders.Rdata")
+head(leaders)
+```
+
