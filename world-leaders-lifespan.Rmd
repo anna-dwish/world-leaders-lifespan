@@ -1,12 +1,48 @@
 ---
 title: "World Leaders Lifespan"
-author: "Ethan Shen"
+author: "Ethan Shen, Malavi Ravindran, Steven Herrera Tenorio, Anna Darwish"
 date: "8/23/2020"
 output: html_document
 ---
 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readr)
+library(dplyr)
+library(ggplot2)
+setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
+```
+
 ```{r}
 load("Leaders.Rdata")
+leaders <- as.data.frame(leaders)
 head(leaders)
 ```
 
+# Update Data
+
+```{r}
+prev_date <- as.Date("31/07/2020",format="%d/%m/%Y")
+current_date <- as.Date("31/08/2020",format="%d/%m/%Y")
+
+## remove days string and convert to numeric
+leaders <- leaders %>% 
+            mutate(Age.Event = sub(".*?(\\d+\\.*\\d*).*", "\\1", Age.Event)) %>% data.frame
+leaders$Age.Event <- as.numeric(leaders$Age.Event)
+
+## update age event by adding 1/12 to leaders still alive (none died in past month so easy to do case when)
+leaders <- leaders %>% 
+            mutate(Age.Event = case_when(Event.Date == prev_date ~ Age.Event + 1/12,
+                                          TRUE ~ Age.Event)) %>% data.frame
+## update time in same way 
+leaders <- leaders %>% 
+            mutate(time = case_when(Event.Date == prev_date ~ time + 1/12,
+                                          TRUE ~ time)) %>% data.frame
+
+## update event dates to be current day since none of the leaders in this set died in the past month
+leaders <- leaders %>% 
+            mutate(Event.Date = case_when(Event.Date == prev_date ~ as.Date(current_date,format="%d/%m/%Y"),
+                                         TRUE ~ Event.Date)) %>% data.frame
+
+head(leaders)
+```
