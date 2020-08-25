@@ -6,3 +6,4 @@ We were motivated to explore this after comparing the lifespans of popes from th
 
 # Sources
 * Julian Stander, Luciana Dalla Valle & Mario Cortina-Borja (2018) A Bayesian Survival Analysis of a Historical Dataset: How Long Do Popes Live?, The American Statistician, 72:4, 368-375, DOI: 10.1080/00031305.2017.1328374
+* http://search.r-project.org/library/Epi/html/plot.Lexis.html

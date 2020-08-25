@@ -10,13 +10,16 @@ knitr::opts_chunk$set(echo = TRUE)
 library(readr)
 library(dplyr)
 library(ggplot2)
-setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
+library(Epi)
+library(knitr)
+library(lubridate)
+setwd("/Users/annadarwish/Desktop/Senior/STA_440/world-leaders-lifespan/")
 ```
 
 ```{r}
 load("Leaders.Rdata")
 leaders <- as.data.frame(leaders)
-head(leaders)
+kable(head(leaders))
 ```
 
 # Update Data
@@ -43,6 +46,40 @@ leaders <- leaders %>%
 leaders <- leaders %>% 
             mutate(Event.Date = case_when(Event.Date == prev_date ~ as.Date(current_date,format="%d/%m/%Y"),
                                          TRUE ~ Event.Date)) %>% data.frame
+## update centuries
+leaders$centdate <- substring(leaders$Event.Date,0,2)
 
-head(leaders)
+kable(head(leaders))
+```
+
+# Lexis Diagram for World Leaders
+
+```{r}
+# A small bogus cohort
+monthToDayCount <- c(31,28,31,30,31,30,31,31,30,31,30,31)
+
+leaders$Term.Start <- leaders$Event.Date %m-% months(as.integer(leaders$time * 12))
+leaders$daysLeftover <- leaders$time * 12 - as.integer(leaders$time*12)
+leaders <- leaders %>% 
+            mutate(daysLeftover = case_when(month(Term.Start) != 2 ~ daysLeftover * monthToDayCount[month(Term.Start)],
+                                            leap_year(year(Term.Start)) ~ daysLeftover * 29,
+                                            TRUE ~ daysLeftover * 28)) %>% data.frame
+leaders$Term.Start <- leaders$Term.Start - days(as.integer(leaders$daysLeftover))
+leaders <- subset(leaders, select = -c(daysLeftover))
+
+leaders.lexis <- subset(leaders, select=c(Fail))
+# Used code from http://search.r-project.org/library/Epi/html/plot.Lexis.html to generate lexis plot
+leaders.lexis$bt <- as.integer(substring(leaders$Birth.Date,0,4))
+leaders.lexis$en <- as.integer(substring(leaders$Term.Start,0,4))
+leaders.lexis$ex <- as.integer(substring(leaders$Event.Date,0,4))
+
+# Define as Lexis object with timescales calendar time and age
+Lcoh <- Lexis( entry = list( per=en ),
+                exit = list( per=ex, age=ex-bt ),
+         exit.status = Fail,
+                data = leaders.lexis )
+
+plot(Lcoh, grid=0:20*5, col='black', xaxs="i", yaxs="i",
+      xlim=c(min(leaders.lexis$bt),2030), ylim=c(0,100), lwd=3, las=1 )
+points( Lcoh, pch=c(NA,16)[Lcoh$lex.Xst+1], col="red", cex=1.5 )
 ```
