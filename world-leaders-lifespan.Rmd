@@ -1,12 +1,85 @@
 ---
 title: "World Leaders Lifespan"
-author: "Ethan Shen"
+author: "Ethan Shen, Malavi Ravindran, Steven Herrera Tenorio, Anna Darwish"
 date: "8/23/2020"
 output: html_document
 ---
 
-```{r}
-load("Leaders.Rdata")
-head(leaders)
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(Epi)
+library(knitr)
+library(lubridate)
+setwd("/Users/annadarwish/Desktop/Senior/STA_440/world-leaders-lifespan/")
 ```
 
+```{r}
+load("Leaders.Rdata")
+leaders <- as.data.frame(leaders)
+kable(head(leaders))
+```
+
+# Update Data
+
+```{r}
+prev_date <- as.Date("31/07/2020",format="%d/%m/%Y")
+current_date <- as.Date("31/08/2020",format="%d/%m/%Y")
+
+## remove days string and convert to numeric
+leaders <- leaders %>% 
+            mutate(Age.Event = sub(".*?(\\d+\\.*\\d*).*", "\\1", Age.Event)) %>% data.frame
+leaders$Age.Event <- as.numeric(leaders$Age.Event)
+
+## update age event by adding 1/12 to leaders still alive (none died in past month so easy to do case when)
+leaders <- leaders %>% 
+            mutate(Age.Event = case_when(Event.Date == prev_date ~ Age.Event + 1/12,
+                                          TRUE ~ Age.Event)) %>% data.frame
+## update time in same way 
+leaders <- leaders %>% 
+            mutate(time = case_when(Event.Date == prev_date ~ time + 1/12,
+                                          TRUE ~ time)) %>% data.frame
+
+## update event dates to be current day since none of the leaders in this set died in the past month
+leaders <- leaders %>% 
+            mutate(Event.Date = case_when(Event.Date == prev_date ~ as.Date(current_date,format="%d/%m/%Y"),
+                                         TRUE ~ Event.Date)) %>% data.frame
+## update centuries
+leaders$centdate <- substring(leaders$Event.Date,0,2)
+
+kable(head(leaders))
+```
+
+# Lexis Diagram for World Leaders
+
+```{r}
+# A small bogus cohort
+monthToDayCount <- c(31,28,31,30,31,30,31,31,30,31,30,31)
+
+leaders$Term.Start <- leaders$Event.Date %m-% months(as.integer(leaders$time * 12))
+leaders$daysLeftover <- leaders$time * 12 - as.integer(leaders$time*12)
+leaders <- leaders %>% 
+            mutate(daysLeftover = case_when(month(Term.Start) != 2 ~ daysLeftover * monthToDayCount[month(Term.Start)],
+                                            leap_year(year(Term.Start)) ~ daysLeftover * 29,
+                                            TRUE ~ daysLeftover * 28)) %>% data.frame
+leaders$Term.Start <- leaders$Term.Start - days(as.integer(leaders$daysLeftover))
+leaders <- subset(leaders, select = -c(daysLeftover))
+
+leaders.lexis <- subset(leaders, select=c(Fail))
+# Used code from http://search.r-project.org/library/Epi/html/plot.Lexis.html to generate lexis plot
+leaders.lexis$bt <- as.integer(substring(leaders$Birth.Date,0,4))
+leaders.lexis$en <- as.integer(substring(leaders$Term.Start,0,4))
+leaders.lexis$ex <- as.integer(substring(leaders$Event.Date,0,4))
+
+# Define as Lexis object with timescales calendar time and age
+Lcoh <- Lexis( entry = list( per=en ),
+                exit = list( per=ex, age=ex-bt ),
+         exit.status = Fail,
+                data = leaders.lexis )
+
+plot(Lcoh, grid=0:20*5, col='black', xaxs="i", yaxs="i",
+      xlim=c(min(leaders.lexis$bt),2030), ylim=c(0,100), lwd=3, las=1 )
+points( Lcoh, pch=c(NA,16)[Lcoh$lex.Xst+1], col="red", cex=1.5 )
+```
