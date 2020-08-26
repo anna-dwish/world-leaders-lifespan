@@ -13,6 +13,8 @@ library(ggplot2)
 library(Epi)
 library(knitr)
 library(lubridate)
+library(R2jags)
+library(tidyr)
 setwd("/Users/annadarwish/Desktop/Senior/STA_440/world-leaders-lifespan/")
 ```
 
@@ -30,23 +32,23 @@ current_date <- as.Date("31/08/2020",format="%d/%m/%Y")
 
 ## remove days string and convert to numeric
 leaders <- leaders %>% 
-            mutate(Age.Event = sub(".*?(\\d+\\.*\\d*).*", "\\1", Age.Event)) %>% data.frame
+  mutate(Age.Event = sub(".*?(\\d+\\.*\\d*).*", "\\1", Age.Event)) %>% data.frame
 leaders$Age.Event <- as.numeric(leaders$Age.Event)
 
 ## update age event by adding 1/12 to leaders still alive (none died in past month so easy to do case when)
 leaders <- leaders %>% 
-            mutate(Age.Event = case_when(Event.Date == prev_date ~ Age.Event + 1/12,
-                                          TRUE ~ Age.Event)) %>% data.frame
+  mutate(Age.Event = case_when(Event.Date == prev_date ~ Age.Event + 1/12,
+                               TRUE ~ Age.Event)) %>% data.frame
 
 ## update event dates to be current day since none of the leaders in this set died in the past month
 leaders <- leaders %>% 
-            mutate(Event.Date = case_when(Event.Date == prev_date ~ as.Date(current_date,format="%d/%m/%Y"),
-                                         TRUE ~ Event.Date)) %>% data.frame
+  mutate(Event.Date = case_when(Event.Date == prev_date ~ as.Date(current_date,format="%d/%m/%Y"),
+                                TRUE ~ Event.Date)) %>% data.frame
 
 ## update Emperor Jianwen
 leaders <- leaders %>% 
-            mutate(Fail = case_when(Name == "Jianwen Emperor" ~ 1,
-                                         TRUE ~ Fail)) %>% data.frame
+  mutate(Fail = case_when(Name == "Jianwen Emperor" ~ 1,
+                          TRUE ~ Fail)) %>% data.frame
 leaders
 ```
 
@@ -55,18 +57,18 @@ leaders
 ```{r}
 plotLifeSpan <- function(leaderType) {
   leaders.lexis <- leaders %>% filter(Type == leaderType) %>% data.frame
-
+  
   # Used code from http://search.r-project.org/library/Epi/html/plot.Lexis.html to generate lexis plot
   leaders.lexis$bt <- as.integer(substring(leaders.lexis$Birth.Date,0,4))
   leaders.lexis$ex <- as.integer(substring(leaders.lexis$Event.Date,0,4))
-
+  
   # Define as Lexis object with timescales calendar time and age
   lifespans <- Lexis( entry = list( per=bt ),
-                exit = list( per=ex, age=Age.Event ),
-                exit.status = Fail,
-                data = leaders.lexis )
+                      exit = list( per=ex, age=Age.Event ),
+                      exit.status = Fail,
+                      data = leaders.lexis )
   plot(Lcoh, grid=0:20*5, col='black', xaxs="i", yaxs="i",
-      xlim=c(min(leaders.lexis$bt),2030), ylim=c(0,100), lwd=3, las=1 , main=leaderType) 
+       xlim=c(min(leaders.lexis$bt),2030), ylim=c(0,100), lwd=3, las=1 , main=leaderType) 
   points( Lcoh, pch=c(NA,16)[Lcoh$lex.Xst+1], col="red", cex=1.5 )
 }
 
@@ -75,3 +77,131 @@ for (leaderType in unique(leaders.lexis$Type)) {
 }
 
 ```
+
+
+
+```{r}
+alive = c("Barack Obama","Francis","14th Dalai Lama (Tenzin Gyatso)", "Naruhito (Emperor Reiwa)")
+l = leaders[-(leaders$Name %in% alive),]
+l
+
+n <- nrow(l)
+#
+#
+# Censoring
+Age.Event <- l$Age.Event
+#
+censored <- l$Censored
+#
+survival <- ifelse(censored == 0, Age.Event, NA)
+#
+censoring_limits <- ifelse(censored == 0, 100, Age.Event)
+#
+# Covariates (centered)
+#
+x_1 <- l$time - mean(l$time)
+#
+x_2 <- l$Type %>% as.factor() %>% relevel("Pope")
+
+#leaders[leaders$Name == "Francis",]$time
+```
+pope is baseline for type 
+```{r}
+first_approach <- "
+  model {
+  for(i in 1:n){
+    censored[i] ~ dinterval(survival[i], censoring_limits[i]) 
+    survival[i] ~ dweib(r, mu[i]) # Basic Weibull assumption
+    mu[i] <- exp(beta[i])  # Defining beta as log(mu)
+    beta[i] <- beta_0 + beta_1*x_1[i] + beta_type[x_2[i]]
+  }
+  
+  # Priors
+  #
+  beta_0 ~ dnorm(0.0, 1.0E-4) # Prior on beta_0 is normal with low precision
+  beta_1 ~ dnorm(0.0, 1.0E-4) # Prior on beta_1 is normal with low precision
+  
+  # http://mikemeredith.net/blog/2017/Categories_in_JAGS.htm
+  beta_type[1] <- 0
+  for(i in 2:5) {
+    beta_type[i] ~ dnorm(0.0, 1.0E-4)
+  }
+  
+  r ~ dexp(0.001) # Prior on r
+ 
+
+  # Predictive distribution of age at the new values
+  #
+  beta_Francis <- beta_0 + beta_1*age_Francis
+  mu_Francis <- exp(beta_Francis)
+  survival_Francis ~ dweib(r, mu_Francis)T(present_length, upper_length)
+  # Take into account the current pontificate length
+  # Also specify a sensible upper bound
+  age_Francis_predictive <- age_at_election + survival_Francis
+  # Work also with age
+}"
+```
+
+```{r}
+
+###### unsure if this is right ####
+age_at_election <- leaders[leaders$Name == "Francis",]$Age.Event
+age_Francis <- leaders[leaders$Name == "Francis",]$time
+
+#year_Francis <- 2013 - mean(popes$Year.Elected)
+#
+#
+# Predictive distribution of pontificate length for Francis at election
+# Conditional on being greater than 3.79 years (December 2016)
+#
+present_length <- leaders[leaders$Name == "Francis",]$Age.Event
+
+upper_length <- 100
+#############
+data_Popes_first_approach <- list("n",
+                                  "censored",
+                                  "survival",
+                                  "censoring_limits",
+                                  "x_1",
+                                  "x_2",
+                                  "age_at_election",
+                                  "age_Francis",
+                                  "present_length",
+                                  "upper_length")
+#
+Bayesian_Popes_first_approach <- jags(data = data_Popes_first_approach,  
+                                      parameters.to.save = c("beta_0",
+                                                             "beta_1",
+                                                             "beta_type",
+                                                             "r",
+                                                             "survival_Francis",
+                                                             "age_Francis_predictive"), 
+                                      n.iter = 500, # INCREASE SIMULATIONS
+                                      n.chains = 3,
+                                      model.file = textConnection(first_approach))
+
+Bayesian_Popes_first_approach$BUGSoutput$sims.matrix %>% 
+  as.data.frame() %>% 
+  mutate(i = row_number()) %>% 
+  tidyr::gather(key, value, "beta_0", "beta_1", "r", "beta_type[2]", "beta_type[3]", "beta_type[4]", "beta_type[5]", -i) %>% 
+  ggplot() + 
+  geom_line(aes(x = i, y = value, color = key))+ 
+  facet_grid(key~., scales = "free_y")
+
+
+Bayesian_Popes_first_approach$BUGSoutput$sims.matrix[, "survival_Francis"] %>% hist() # this kinda makes sense?? I guess we wnat things to look "approx normal"
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
