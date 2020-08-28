@@ -2,13 +2,31 @@
 title: "World Leaders Lifespan"
 author: "Ethan Shen, Malavi Ravindran, Steven Herrera Tenorio, Anna Darwish"
 date: "8/23/2020"
-fontsize: 12pt
-geometry: "left=2cm,right=2cm,top=2cm,bottom=2cm"
-output: 
-  pdf_document:
-      latex_engine: xelatex
-      number_sections: true
+output: html_document
 ---
+
+```{r, function checking for installed packages, include=FALSE}
+pkgTest <- function(x)
+  {
+    if (!require(x,character.only = TRUE))
+    {
+      install.packages(x,repos = "http://cran.r-project.org", dep=TRUE)
+        if(!require(x,character.only = TRUE)) stop("Package not found")
+    }
+  }
+```
+
+```{r include=FALSE}
+#Installing packages 
+pkgTest("readr")
+pkgTest("dplyr")
+pkgTest("ggplot2")
+pkgTest("Epi")
+pkgTest("knitr")
+pkgTest("lubridate")
+pkgTest("R2jags")
+pkgTest("tidyr")
+```
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -162,7 +180,7 @@ x_2 <- l$Type %>% as.factor() %>% relevel("Pope")
 ```
 pope is baseline for type 
 ```{r}
-first_approach <- function() {
+leaders_model <- function() {
   for(i in 1:n){
     censored[i] ~ dinterval(survival[i], censoring_limits[i]) 
     survival[i] ~ dweib(r, mu[i]) # Basic Weibull assumption
@@ -185,7 +203,7 @@ first_approach <- function() {
     beta_type[i] ~ dnorm(0.0, 1.0E-4)
     beta_inter[i] ~ dnorm(0.0, 1.0E-4)
   }
-
+  
   r ~ dexp(0.001) # Prior on r
   
   
@@ -217,32 +235,32 @@ present_length <- leaders[leaders$Name == "Francis",]$Age.Event
 
 upper_length <- 100
 #############
-data_Popes_first_approach <- list("n",
-                                  "censored",
-                                  "survival",
-                                  "censoring_limits",
-                                  "x_1",
-                                  "x_2",
-                                  #"age_at_election",
-                                  "age_Francis",
-                                  "present_length",
-                                  "upper_length")
+data_leaders <- list("n",
+                     "censored",
+                     "survival",
+                     "censoring_limits",
+                     "x_1",
+                     "x_2",
+                     #"age_at_election",
+                     "age_Francis",
+                     "present_length",
+                     "upper_length")
 #
-Bayesian_Popes_first_approach <- jags(data = data_Popes_first_approach,  
-                                      parameters.to.save = c("beta_0",
-                                                             "beta_1",
-                                                             "beta_type",
-                                                             "beta_inter",
-                                                             "r",
-                                                             "survival_Francis"
-                                                             #,
-                                                             #"age_Francis_predictive"
-                                      ), 
-                                      n.iter = 10000, # INCREASE SIMULATIONS
-                                      n.chains = 3,
-                                      model.file = first_approach)
+Bayesian_Leaders <- jags(data = data_leaders,  
+                         parameters.to.save = c("beta_0",
+                                                "beta_1",
+                                                "beta_type",
+                                                "beta_inter",
+                                                "r",
+                                                "survival_Francis"
+                                                #,
+                                                #"age_Francis_predictive"
+                         ), 
+                         n.iter = 10000, # INCREASE SIMULATIONS
+                         n.chains = 3,
+                         model.file = leaders_model)
 
-Bayesian_Popes_first_approach$BUGSoutput$sims.matrix %>% 
+Bayesian_Leaders$BUGSoutput$sims.matrix %>% 
   as.data.frame() %>% 
   mutate(i = row_number()) %>% 
   tidyr::gather(key, value, "beta_0", "beta_1", "r", "beta_inter[1]", "beta_type[3]", "beta_type[4]", "beta_type[5]", -i) %>% 
@@ -251,7 +269,7 @@ Bayesian_Popes_first_approach$BUGSoutput$sims.matrix %>%
   facet_grid(key~., scales = "free_y")
 
 
-Bayesian_Popes_first_approach$BUGSoutput$sims.matrix[, "survival_Francis"] %>% hist() # this kinda makes sense?? I guess we wnat things to look "approx normal"
+Bayesian_Leaders$BUGSoutput$sims.matrix[, "survival_Francis"] %>% hist() # this kinda makes sense?? I guess we wnat things to look "approx normal"
 ```
 
 
