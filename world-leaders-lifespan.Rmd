@@ -18,15 +18,14 @@ library(ggplot2)
 library(Epi)
 library(knitr)
 library(lubridate)
-library(R2jags)
+#library(R2jags)
 library(tidyr)
-setwd("/Users/annadarwish/Desktop/Senior/STA_440/world-leaders-lifespan/")
 ```
 
 ```{r}
 load("Leaders.Rdata")
 leaders <- as.data.frame(leaders)
-leaders
+head(leaders)
 ```
 
 # Update Data
@@ -64,34 +63,26 @@ leaders
 ```{r}
 ggplot(leaders, aes(x=time)) + 
   geom_histogram(color="black", fill="white", bins = 10) + 
-  labs(title="Distribution of Relative Birth Date")
+  labs(title="Distribution of Relative Birth Date") + xlab("Relative Birth Date")
 ```
 ## Distributions of Lifespan
 
 ```{r}
 ggplot(leaders, aes(x=Age.Event)) + 
   geom_histogram(color="black", fill="white", bins = 10) + 
-  labs(title="Distribution of Lifespan")
+  labs(title="Distribution of Lifespan") + xlab("Lifespan (yrs)")
 ```
 
 ## Distributions of Relative Birth Date Across Leadership Type
 
 ```{r}
-boxplot(time ~ Type, data = leaders, main="Relative Birth Date vs Type of Leader")
+boxplot(time ~ Type, data = leaders, main="Relative Birth Date vs Type of Leader", ylab="Relative Birth Date", xlab="Leader Type")
 ```
 
 ## Distributions of Lifespan Across Leadership Type
 
 ```{r}
-boxplot(Age.Event ~ Type, data = leaders, main="Lifespans vs Type of Leader")
-```
-
-## Distributions of Lifespan Across Leadership Type
-
-```{r}
-ggplot(leaders, aes(x=Age.Event)) + 
-  geom_histogram(color="black", fill="white", bins = 10) + 
-  labs(title="Distribution of Lifespan")
+boxplot(Age.Event ~ Type, data = leaders, main="Lifespans vs Type of Leader", ylab="Lifespan (yrs)", xlab="Leader Type")
 ```
 
 ## Scatterplot of Lifespan vs Relative Birth Date across Leadership Type
@@ -99,7 +90,15 @@ ggplot(leaders, aes(x=Age.Event)) +
 ```{r}
 ggplot(leaders, aes(x=time, y=Age.Event, shape=Type, color=Type)) +
   geom_point() + labs(title="Lifespan vs Relative Birth Date") + 
-  ylab("Lifespan") + xlab("Relative Birth Date")
+  ylab("Lifespan (yrs)") + xlab("Relative Birth Date")
+```
+
+
+## Interaction Plot
+
+```{r}
+qplot(x = time, y = Age.Event, data = leaders, color = Type) +
+  geom_smooth(method = "lm", se=FALSE) + ylab("Lifespan (yrs)") + xlab("Relative Birth Date")
 ```
 
 ## Lexis Diagrams of Lifespans Across Leadership Type
@@ -123,7 +122,7 @@ plotLifeSpan <- function(leaderType) {
   plotTitle = paste0("Lexis Diagram of Lifespans of ",leaderTypeTitles[leaderType])
   plot(lifespans, grid=0:20*5, col='black', xaxs="i", yaxs="i",
        xlim=c(min(leaders.lexis$bt),2030), ylim=c(0,100), lwd=3, las=1 , main=plotTitle,
-       ylab="Age", xlab="Century") 
+       ylab="Lifespan (yrs)", xlab="Century") 
   points( lifespans, pch=c(NA,16)[lifespans$lex.Xst+1], col="red", cex=1.5 )
 }
 
