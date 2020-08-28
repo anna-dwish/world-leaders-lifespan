@@ -18,15 +18,14 @@ library(ggplot2)
 library(Epi)
 library(knitr)
 library(lubridate)
-library(R2jags)
+#library(R2jags)
 library(tidyr)
-setwd("/Users/annadarwish/Desktop/Senior/STA_440/world-leaders-lifespan/")
 ```
 
 ```{r}
 load("Leaders.Rdata")
 leaders <- as.data.frame(leaders)
-leaders
+head(leaders)
 ```
 
 # Update Data
@@ -57,9 +56,57 @@ leaders <- leaders %>%
 leaders
 ```
 
-# Lexis Diagram for World Leaders
+# Exploratory Data Analysis
+
+## Distribution of Relative Birth Date
 
 ```{r}
+ggplot(leaders, aes(x=time)) + 
+  geom_histogram(color="black", fill="white", bins = 10) + 
+  labs(title="Distribution of Relative Birth Date") + xlab("Relative Birth Date")
+```
+## Distributions of Lifespan
+
+```{r}
+ggplot(leaders, aes(x=Age.Event)) + 
+  geom_histogram(color="black", fill="white", bins = 10) + 
+  labs(title="Distribution of Lifespan") + xlab("Lifespan (yrs)")
+```
+
+## Distributions of Relative Birth Date Across Leadership Type
+
+```{r}
+boxplot(time ~ Type, data = leaders, main="Relative Birth Date vs Type of Leader", ylab="Relative Birth Date", xlab="Leader Type")
+```
+
+## Distributions of Lifespan Across Leadership Type
+
+```{r}
+boxplot(Age.Event ~ Type, data = leaders, main="Lifespans vs Type of Leader", ylab="Lifespan (yrs)", xlab="Leader Type")
+```
+
+## Scatterplot of Lifespan vs Relative Birth Date across Leadership Type
+
+```{r}
+ggplot(leaders, aes(x=time, y=Age.Event, shape=Type, color=Type)) +
+  geom_point() + labs(title="Lifespan vs Relative Birth Date") + 
+  ylab("Lifespan (yrs)") + xlab("Relative Birth Date")
+```
+
+
+## Interaction Plot
+
+```{r}
+qplot(x = time, y = Age.Event, data = leaders, color = Type) +
+  geom_smooth(method = "lm", se=FALSE) + ylab("Lifespan (yrs)") + xlab("Relative Birth Date")
+```
+
+## Lexis Diagrams of Lifespans Across Leadership Type
+
+```{r}
+leaderTypeTitles <- c("Popes", "US Presidents", "Chinese Emperors", "Dalai Lamas","Japanese Emperors")
+names(leaderTypeTitles) <- c("Pope", "UsPres", "ChinaEmp","DalaiLama","JapanEmp")
+
 plotLifeSpan <- function(leaderType) {
   leaders.lexis <- leaders %>% filter(Type == leaderType) %>% data.frame
   
@@ -72,18 +119,18 @@ plotLifeSpan <- function(leaderType) {
                       exit = list( per=ex, age=Age.Event ),
                       exit.status = Fail,
                       data = leaders.lexis )
-  plot(Lcoh, grid=0:20*5, col='black', xaxs="i", yaxs="i",
-       xlim=c(min(leaders.lexis$bt),2030), ylim=c(0,100), lwd=3, las=1 , main=leaderType) 
-  points( Lcoh, pch=c(NA,16)[Lcoh$lex.Xst+1], col="red", cex=1.5 )
+  plotTitle = paste0("Lexis Diagram of Lifespans of ",leaderTypeTitles[leaderType])
+  plot(lifespans, grid=0:20*5, col='black', xaxs="i", yaxs="i",
+       xlim=c(min(leaders.lexis$bt),2030), ylim=c(0,100), lwd=3, las=1 , main=plotTitle,
+       ylab="Lifespan (yrs)", xlab="Century") 
+  points( lifespans, pch=c(NA,16)[lifespans$lex.Xst+1], col="red", cex=1.5 )
 }
 
-for (leaderType in unique(leaders.lexis$Type)) {
+for (leaderType in unique(leaders$Type)) {
   plotLifeSpan(leaderType)
 }
 
 ```
-
-
 
 ```{r}
 alive = c("Barack Obama","Francis","14th Dalai Lama (Tenzin Gyatso)", "Naruhito (Emperor Reiwa)")
