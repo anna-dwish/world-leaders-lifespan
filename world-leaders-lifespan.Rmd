@@ -153,6 +153,9 @@ for (leaderType in unique(leaders$Type)) {
 
 ```
 
+
+# Modeling 
+
 ```{r}
 alive = c("Barack Obama","Francis","14th Dalai Lama (Tenzin Gyatso)", "Naruhito (Emperor Reiwa)")
 l = leaders[-(leaders$Name %in% alive),]
@@ -220,7 +223,6 @@ leaders_model <- function() {
 ```
 
 ```{r}
-
 ###### unsure if this is right ####
 #age_at_election <- leaders[leaders$Name == "Francis",]$Age.Event
 age_Francis <- leaders[leaders$Name == "Francis",]$time
@@ -256,20 +258,45 @@ Bayesian_Leaders <- jags(data = data_leaders,
                                                 #,
                                                 #"age_Francis_predictive"
                          ), 
-                         n.iter = 10000, # INCREASE SIMULATIONS
+                         n.iter = 150000, # INCREASE SIMULATIONS
+                         n.burnin = 50000,
+                         n.thin = 100, 
                          n.chains = 3,
                          model.file = leaders_model)
+Bayesian_Leaders
+```
 
-Bayesian_Leaders$BUGSoutput$sims.matrix %>% 
+## Traceplots 
+
+```{r}
+post_values = Bayesian_Leaders$BUGSoutput$sims.matrix %>% 
   as.data.frame() %>% 
-  mutate(i = row_number()) %>% 
-  tidyr::gather(key, value, "beta_0", "beta_1", "r", "beta_inter[1]", "beta_type[3]", "beta_type[4]", "beta_type[5]", -i) %>% 
+  mutate(i = row_number())
+
+post_values %>% 
+  tidyr::gather(key, value, "beta_0", "beta_1", "r", -i) %>% 
   ggplot() + 
   geom_line(aes(x = i, y = value, color = key)) + 
   facet_grid(key~., scales = "free_y")
 
+post_values %>% 
+  tidyr::gather(key, value, `beta_type[2]`:`beta_type[5]`, -i) %>% 
+  ggplot() + 
+  geom_line(aes(x = i, y = value, color = key)) + 
+  facet_grid(key~., scales = "free_y")
 
-Bayesian_Leaders$BUGSoutput$sims.matrix[, "survival_Francis"] %>% hist() # this kinda makes sense?? I guess we wnat things to look "approx normal"
+post_values %>% 
+  tidyr::gather(key, value, `beta_inter[2]`:`beta_inter[5]`, -i) %>% 
+  ggplot() + 
+  geom_line(aes(x = i, y = value, color = key)) + 
+  facet_grid(key~., scales = "free_y")
+```
+
+## Posterior Predictive Distribution (Francis' Lifespan)
+
+```{r}
+ggplot(post_values) +
+  geom_histogram(aes(x = survival_Francis)) # this kinda makes sense?? I guess we wnat things to look "approx normal"
 ```
 
 
