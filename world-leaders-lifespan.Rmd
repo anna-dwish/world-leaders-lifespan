@@ -179,7 +179,7 @@ censoring_limits <- ifelse(censored == 0, 100, Age.Event)
 #
 # Covariates (centered)
 #
-x_1 <- l$decade - mean(l$decade) # looking at "time" by the decade 
+x_1 <- l$time - mean(l$time) # looking at "time" by the decade 
 #
 x_2 <- l$Type %>% as.factor() %>% relevel("Pope")
 
@@ -187,7 +187,35 @@ x_2 <- l$Type %>% as.factor() %>% relevel("Pope")
 ```
 pope is baseline for type 
 
+```{r}
+levels(x_2)
+```
+
+
+
 ## Model 1 - Flat Priors 
+
+```{r}
+#predictive info for francis, obama, and naruhito
+
+#francis
+time_Francis <- 6.3694456 - mean(leaders$time)
+type_Francis <- 0
+present_length_Francis <- 83.702772
+  
+#obama
+time_Obama <- 6.6157426 - mean(leaders$time)
+type_Obama <- 5
+present_length_Obama <- 59.073066
+
+#naruhit
+time_Naruhito <- 6.6012868 - mean(leaders$time)
+type_Naruhito <- 4
+present_length_Naruhito <- 60.518652
+
+upper_length <- 100
+```
+
 
 ```{r}
 leaders_model_V1 <- function() {
@@ -218,9 +246,18 @@ leaders_model_V1 <- function() {
   
   # Predictive distribution of age at the new values
   #
-  beta_Francis <- beta_0 + beta_1*age_Francis + beta_type[1] 
+  beta_Francis <- beta_0 + beta_1*time_Francis 
   mu_Francis <- exp(beta_Francis)
-  survival_Francis ~ dweib(r, mu_Francis) %_% T(present_length, upper_length)
+  survival_Francis ~ dweib(r, mu_Francis) %_% T(present_length_Francis, upper_length)
+  
+  beta_Obama <- beta_0 + beta_1*time_Obama + beta_type[type_Obama] + beta_int[type_Obama]*time_Obama
+  mu_Obama <- exp(beta_Obama)
+  survival_Obama ~ dweib(r, mu_Obama) %_% T(present_length_Obama, upper_length)
+  
+  beta_Naruhito <- beta_0 + beta_1*time_Naruhito + beta_type[type_Naruhito] + beta_int[type_Naruhito]*time_Naruhito
+  mu_Naruhito <- exp(beta_Naruhito)
+  survival_Naruhito ~ dweib(r, mu_Naruhito) %_% T(present_length_Naruhito, upper_length) 
+  
   # Take into account the current pontificate length
   # Also specify a sensible upper bound
   #age_Francis_predictive <- age_at_election + survival_Francis
@@ -229,31 +266,25 @@ leaders_model_V1 <- function() {
 ```
 
 ```{r}
-###### unsure if this is right ####
-#age_at_election <- leaders[leaders$Name == "Francis",]$Age.Event
-age_Francis <- leaders[leaders$Name == "Francis",]$time
-
-#year_Francis <- 2013 - mean(popes$Year.Elected)
-#
-#
-# Predictive distribution of pontificate length for Francis at election
-# Conditional on being greater than 3.79 years (December 2016)
-#
-present_length <- leaders[leaders$Name == "Francis",]$Age.Event
-
-upper_length <- 100
-#############
 data_leaders <- list("n",
                      "censored",
                      "survival",
                      "censoring_limits",
                      "x_1",
-                     "x_2",
-                     #"age_at_election",
-                     "age_Francis",
-                     "present_length",
-                     "upper_length")
+                     "x_2", 
+                     "time_Francis",
+                     "type_Francis",
+                     "present_length_Francis",
+                     "upper_length",
+                     "time_Obama",
+                     "type_Obama",
+                     "present_length_Obama",
+                     "time_Naruhito",
+                     "type_Naruhito",
+                     "present_length_Naruhito")
 ```
+
+
 
 ```{r}
 if (file.exists("leaders_model_V1.Rdata")) {
@@ -266,16 +297,18 @@ if (file.exists("leaders_model_V1.Rdata")) {
                                                      "beta_type",
                                                      "beta_int",
                                                      "r",
-                                                     "survival_Francis"
-                                                     #,
-                                                     #"age_Francis_predictive"
+                                                     "survival_Francis",
+                                                     "survival_Obama",
+                                                     "survival_Naruhito"
                               ), 
+                            
                               n.iter = 200000, 
                               n.chains = 3,
                               model.file = leaders_model_V1)
   save(Bayesian_Leaders_V1, file = "leaders_model_V1.Rdata")
 }
 ```
+
 
 
 ```{r}
