@@ -196,11 +196,16 @@ levels(x_2)
 ## Model 1 - Flat Priors 
 
 ```{r}
-#predictive info for francis, obama, and naruhito
+#predictive info for francis, obama, and naruhito, dalai lama
 
 #francis
+
+time_DL <- 6.3549350 - mean(leaders$time)
+type_DL <- 3
+present_length_DL <- 85.153833
+
 time_Francis <- 6.3694456 - mean(leaders$time)
-type_Francis <- 0
+type_Francis <- 1
 present_length_Francis <- 83.702772
 
 #obama
@@ -208,10 +213,12 @@ time_Obama <- 6.6157426 - mean(leaders$time)
 type_Obama <- 5
 present_length_Obama <- 59.073066
 
-#naruhit
+#naruhito
 time_Naruhito <- 6.6012868 - mean(leaders$time)
 type_Naruhito <- 4
 present_length_Naruhito <- 60.518652
+
+
 
 upper_length <- 100
 ```
@@ -258,6 +265,10 @@ leaders_model_V1 <- function() {
     beta_int[type_Naruhito]*time_Naruhito
   mu_Naruhito <- exp(beta_Naruhito)
   survival_Naruhito ~ dweib(r, mu_Naruhito) %_% T(present_length_Naruhito, upper_length) 
+  
+  beta_DL <- beta_0 + beta_1*time_DL + beta_type[type_DL] + beta_int[type_DL]*time_DL
+  mu_DL <- exp(beta_DL)
+  survival_DL ~ dweib(r, mu_DL) %_% T(present_length_DL, upper_length)
 }
 ```
 
@@ -272,7 +283,9 @@ data_leaders <- list("n",
                      "present_length_Francis",
                      "upper_length",
                      "time_Obama",
-                     "type_Obama",
+                     "type_Obama","time_DL",
+                     "type_DL",
+                     "present_length_DL",
                      "present_length_Obama",
                      "time_Naruhito",
                      "type_Naruhito",
@@ -291,6 +304,7 @@ if (file.exists("leaders_model_V1.Rdata")) {
                                                      "beta_type",
                                                      "beta_int",
                                                      "r",
+                                                     "survival_DL",
                                                      "survival_Francis",
                                                      "survival_Obama",
                                                      "survival_Naruhito"
@@ -365,6 +379,78 @@ post_values_V1 %>%
 ggplot(post_values_V1) +
   geom_histogram(aes(x = survival_Francis)) # this kinda makes sense?? I guess we wnat things to look "approx normal"
 ```
+
+```{r}
+# probability that the 14th Dalai Lama will have a longer lifespan than Pope Francis
+
+survival_DL <- Bayesian_Leaders_V1$BUGSoutput$sims.matrix[,"survival_DL"]
+survival_Francis <- Bayesian_Leaders_V1$BUGSoutput$sims.matrix[,"survival_Francis"]
+
+
+DL_vs_francis <- survival_DL - survival_Francis
+diffData <- as.data.frame(DL_vs_francis)
+ggplot(diffData, aes(x = DL_vs_francis, y = ..density..)) + geom_histogram(binwidth = 3) + labs(x = "Difference in Predicted Survival Times between Dalai Lama and rancisPredictive Probability density", title = "Figure 4") 
+
+
+#probability that Obama will live longer thatn Naruhito
+
+survival_Obama <- Bayesian_Leaders_V1$BUGSoutput$sims.matrix[,"survival_Obama"]
+survival_Naruhito <- Bayesian_Leaders_V1$BUGSoutput$sims.matrix[,"survival_Naruhito"]
+
+mean(survival_Obama > survival_Naruhito)
+med <- median(survival_Obama > survival_Naruhito)
+
+Obama_vs_naruhito <- survival_Obama - survival_Naruhito
+diffData <- as.data.frame(Obama_vs_naruhito)
+ggplot(diffData, aes(x = Obama_vs_naruhito, y = ..density..)) + geom_histogram(binwidth = 3) + labs(x = "Difference in Predicted Survival Times between Obama and Naruhito", y = "Predictive Probability density", title = "Figure 4") 
+```
+
+```{r}
+#interpretation of parameters- split into two tables
+
+#INTERPRETATIONS OF INTERACTION EFFECTS
+bugs_for_interpretation <- Bayesian_Leaders_V1$BUGSoutput$summary %>% 
+  as.data.frame()
+time_coeff_mean <- bugs_for_interpretation["beta_1",][,"mean"]
+intercept_mean <- bugs_for_interpretation["beta_0",][,"mean"]
+r_mean <- bugs_for_interpretation["r",][,"mean"]
+
+
+#Popes
+multiplicative_scale_factor_birthyear_pope <- exp(time_coeff_mean*(-1)/r_mean)
+percent_increase_birthyear_pope <- (multiplicative_scale_factor_birthyear_pope-1)*100
+
+#Chinese Emperors
+beta_int_2_coeff_mean <- bugs_for_interpretation["beta_int[2]",][,"mean"]
+multiplicative_scale_factor_birthyear_chinese_emperor <- exp((time_coeff_mean + beta_int_2_coeff_mean) *(-1)/r_mean)
+percent_increase_birthyear_chinese_emperor <- (multiplicative_scale_factor_birthyear_chinese_emperor-1)*100
+
+#Dalai Lamas
+beta_int_3_coeff_mean <- bugs_for_interpretation["beta_int[3]",][,"mean"]
+multiplicative_scale_factor_birthyear_DL <- exp((time_coeff_mean + beta_int_3_coeff_mean) *(-1)/r_mean)
+percent_increase_birthyear_DL <- (multiplicative_scale_factor_birthyear_DL-1)*100
+
+#Japanese Emperors
+beta_int_4_coeff_mean <- bugs_for_interpretation["beta_int[4]",][,"mean"]
+multiplicative_scale_factor_birthyear_japanese_emperor <- exp((time_coeff_mean + beta_int_4_coeff_mean) *(-1)/r_mean)
+percent_increase_birthyear_japanese_emperor <- (multiplicative_scale_factor_birthyear_japanese_emperor-1)*100
+
+#US President
+beta_int_5_coeff_mean <- bugs_for_interpretation["beta_int[5]",][,"mean"]
+multiplicative_scale_factor_birthyear_us_pres <- exp((time_coeff_mean + beta_int_5_coeff_mean) *(-1)/r_mean)
+percent_increase_birthyear_us_pres <- (multiplicative_scale_factor_birthyear_us_pres-1)*100
+
+scale_factors <- c(multiplicative_scale_factor_birthyear_pope, multiplicative_scale_factor_birthyear_chinese_emperor, multiplicative_scale_factor_birthyear_DL, multiplicative_scale_factor_birthyear_japanese_emperor, multiplicative_scale_factor_birthyear_us_pres)
+
+percent_increase <- c(percent_increase_birthyear_pope, percent_increase_birthyear_chinese_emperor, percent_increase_birthyear_DL, percent_increase_birthyear_japanese_emperor, percent_increase_birthyear_us_pres)
+
+leader_type <- c("Pope", "Chinese Emperor", "Dalai Lama", "Japanese Emperor", "US President")
+
+scale_and_percent <- data.frame(leader_type, scale_factors, percent_increase)
+scale_and_percent 
+  
+```
+
 
 ## Model 2 - Stronger Priors  
 
