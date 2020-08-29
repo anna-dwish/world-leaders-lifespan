@@ -2,18 +2,20 @@
 title: "World Leaders Lifespan"
 author: "Ethan Shen, Malavi Ravindran, Steven Herrera Tenorio, Anna Darwish"
 date: "8/23/2020"
-output: html_document
+output: 
+  pdf_document:
+      latex_engine: xelatex
 ---
 
 ```{r, function checking for installed packages, include=FALSE}
 pkgTest <- function(x)
+{
+  if (!require(x,character.only = TRUE))
   {
-    if (!require(x,character.only = TRUE))
-    {
-      install.packages(x,repos = "http://cran.r-project.org", dep=TRUE)
-        if(!require(x,character.only = TRUE)) stop("Package not found")
-    }
+    install.packages(x,repos = "http://cran.r-project.org", dep=TRUE)
+    if(!require(x,character.only = TRUE)) stop("Package not found")
   }
+}
 ```
 
 ```{r include=FALSE}
@@ -26,6 +28,8 @@ pkgTest("knitr")
 pkgTest("lubridate")
 pkgTest("R2jags")
 pkgTest("tidyr")
+pkgTest("kableExtra")
+pkgTest("tibble")
 ```
 
 ```{r setup, include=FALSE}
@@ -38,6 +42,8 @@ library(knitr)
 library(lubridate)
 library(R2jags)
 library(tidyr)
+library(kableExtra)
+library(tibble)
 ```
 
 ```{r}
@@ -150,9 +156,7 @@ plotLifeSpan <- function(leaderType) {
 for (leaderType in unique(leaders$Type)) {
   plotLifeSpan(leaderType)
 }
-
 ```
-
 
 # Modeling 
 
@@ -175,20 +179,23 @@ censoring_limits <- ifelse(censored == 0, 100, Age.Event)
 #
 # Covariates (centered)
 #
-x_1 <- l$time - mean(l$time) # looking at "time" by the decade 
+x_1 <- l$decade - mean(l$decade) # looking at "time" by the decade 
 #
 x_2 <- l$Type %>% as.factor() %>% relevel("Pope")
 
 #leaders[leaders$Name == "Francis",]$time
 ```
 pope is baseline for type 
+
+## Model 1 - Flat Priors 
+
 ```{r}
-leaders_model <- function() {
+leaders_model_V1 <- function() {
   for(i in 1:n){
     censored[i] ~ dinterval(survival[i], censoring_limits[i]) 
     survival[i] ~ dweib(r, mu[i]) # Basic Weibull assumption
     mu[i] <- exp(beta[i])  # Defining beta as log(mu)
-    beta[i] <- beta_0 + beta_1*x_1[i] + beta_type[x_2[i]] + beta_inter[x_2[i]] * x_1[i] 
+    beta[i] <- beta_0 + beta_1*x_1[i] + beta_type[x_2[i]] + beta_int[x_2[i]] * x_1[i] 
   }
   
   # Priors
@@ -200,15 +207,14 @@ leaders_model <- function() {
   # potentially set different prior for dalai lamas (negative mean or somethin)
   
   beta_type[1] <- 0
-  beta_inter[1] <- 0
+  beta_int[1] <- 0
   
   for(i in 2:5) {
     beta_type[i] ~ dnorm(0.0, 1.0E-4)
-    beta_inter[i] ~ dnorm(0.0, 1.0E-4)
+    beta_int[i] ~ dnorm(0.0, 1.0E-4)
   }
   
   r ~ dexp(0.001) # Prior on r
-  
   
   # Predictive distribution of age at the new values
   #
@@ -247,46 +253,79 @@ data_leaders <- list("n",
                      "age_Francis",
                      "present_length",
                      "upper_length")
-#
-Bayesian_Leaders <- jags(data = data_leaders,  
-                         parameters.to.save = c("beta_0",
-                                                "beta_1",
-                                                "beta_type",
-                                                "beta_inter",
-                                                "r",
-                                                "survival_Francis"
-                                                #,
-                                                #"age_Francis_predictive"
-                         ), 
-                         n.iter = 150000, # INCREASE SIMULATIONS
-                         n.burnin = 50000,
-                         n.thin = 100, 
-                         n.chains = 3,
-                         model.file = leaders_model)
-Bayesian_Leaders
 ```
+
+```{r}
+if (file.exists("leaders_model_V1.Rdata")) {
+  load(file = "leaders_model_V1.Rdata")
+} else {
+  
+  Bayesian_Leaders_V1 <- jags(data = data_leaders,  
+                              parameters.to.save = c("beta_0",
+                                                     "beta_1",
+                                                     "beta_type",
+                                                     "beta_int",
+                                                     "r",
+                                                     "survival_Francis"
+                                                     #,
+                                                     #"age_Francis_predictive"
+                              ), 
+                              n.iter = 200000, 
+                              n.chains = 3,
+                              model.file = leaders_model_V1)
+  save(Bayesian_Leaders_V1, file = "leaders_model_V1.Rdata")
+}
+```
+
+
+```{r}
+## WORK IN PROGRESS - table doesn't knit in a pdf 
+bugs1 <- Bayesian_Leaders_V1$BUGSoutput$summary %>% 
+  as.data.frame() 
+bugs1 <- bugs1[c(14, 1:2, 8:12, 3:7),]
+
+bugs1 <- bugs1 %>% 
+  tibble::rownames_to_column("Parameter") %>% 
+  mutate_if(is.numeric, round, digits = 3) %>% 
+  mutate("95% CI" = paste0("(", `2.5%`, ", ", `97.5%`,  ")")) %>% 
+  select(-(`2.5%`:`97.5%`)) %>% 
+  select(Parameter, mean, sd, `95% CI`, Rhat) %>% 
+  tibble::column_to_rownames("Parameter")
+
+row.names(bugs1) <- c("$r$", "$\\beta_0$", "$\\beta_1$", 
+                     "$\\beta_{21}$","$\\beta_{22}$","$\\beta_{23}$","$\\beta_{24}$","$\\beta_{25}$",
+                     "$\\beta_{31}$","$\\beta_{32}$","$\\beta_{33}$","$\\beta_{34}$","$\\beta_{35}$")
+
+# filters out dummy parameters (beta_21, beta_31)
+bugs1 %>% 
+  filter(sd != 0) %>% 
+  knitr::kable(booktabs=T, 
+                    col.names = c("Estimate", "Std. Deviation", "95% CI", "$\\hat{R}$"),
+                    row.names = T) 
+```
+
 
 ## Traceplots 
 
 ```{r}
-post_values = Bayesian_Leaders$BUGSoutput$sims.matrix %>% 
+post_values_V1 = Bayesian_Leaders_V1$BUGSoutput$sims.matrix %>% 
   as.data.frame() %>% 
   mutate(i = row_number())
 
-post_values %>% 
+post_values_V1 %>% 
   tidyr::gather(key, value, "beta_0", "beta_1", "r", -i) %>% 
   ggplot() + 
   geom_line(aes(x = i, y = value, color = key)) + 
   facet_grid(key~., scales = "free_y")
 
-post_values %>% 
+post_values_V1 %>% 
   tidyr::gather(key, value, `beta_type[2]`:`beta_type[5]`, -i) %>% 
   ggplot() + 
   geom_line(aes(x = i, y = value, color = key)) + 
   facet_grid(key~., scales = "free_y")
 
-post_values %>% 
-  tidyr::gather(key, value, `beta_inter[2]`:`beta_inter[5]`, -i) %>% 
+post_values_V1 %>% 
+  tidyr::gather(key, value, `beta_int[2]`:`beta_int[5]`, -i) %>% 
   ggplot() + 
   geom_line(aes(x = i, y = value, color = key)) + 
   facet_grid(key~., scales = "free_y")
@@ -295,8 +334,97 @@ post_values %>%
 ## Posterior Predictive Distribution (Francis' Lifespan)
 
 ```{r}
-ggplot(post_values) +
+ggplot(post_values_V1) +
   geom_histogram(aes(x = survival_Francis)) # this kinda makes sense?? I guess we wnat things to look "approx normal"
 ```
+
+## Model 2 - Stronger Priors  
+
+```{r}
+leaders_model_V2 <- function() {
+  for(i in 1:n){
+    censored[i] ~ dinterval(survival[i], censoring_limits[i]) 
+    survival[i] ~ dweib(r, mu[i]) # Basic Weibull assumption
+    mu[i] <- exp(beta[i])  # Defining beta as log(mu)
+    beta[i] <- beta_0 + beta_1*x_1[i] + beta_type[x_2[i]] + beta_int[x_2[i]] * x_1[i] 
+  }
+  
+  # Priors
+  #
+  beta_0 ~ dnorm(0.0, 1) # Prior on beta_0 is normal with low precision
+  beta_1 ~ dnorm(0.0, 1) # Prior on beta_1 is normal with low precision
+  
+  # http://mikemeredith.net/blog/2017/Categories_in_JAGS.htm
+  # potentially set different prior for dalai lamas (negative mean or somethin)
+  
+  beta_type[1] <- 0
+  beta_int[1] <- 0
+  
+  for(i in 2:5) {
+    beta_type[i] ~ dnorm(0.0, 1)
+    beta_int[i] ~ dnorm(0.0, 1)
+  }
+  
+  r ~ dexp(1) # Prior on r
+  
+  # Predictive distribution of age at the new values
+  #
+  beta_Francis <- beta_0 + beta_1*age_Francis + beta_type[1] 
+  mu_Francis <- exp(beta_Francis)
+  survival_Francis ~ dweib(r, mu_Francis) %_% T(present_length, upper_length)
+  # Take into account the current pontificate length
+  # Also specify a sensible upper bound
+  #age_Francis_predictive <- age_at_election + survival_Francis
+  # Work also with age
+}
+if (file.exists("leaders_model_V2.Rdata")) {
+  load(file = "leaders_model_V2.Rdata")
+} else {
+  
+  Bayesian_Leaders_V2 <- jags(data = data_leaders,  
+                              parameters.to.save = c("beta_0",
+                                                     "beta_1",
+                                                     "beta_type",
+                                                     "beta_int",
+                                                     "r",
+                                                     "survival_Francis"), 
+                              n.iter = 200000, 
+                              n.chains = 3,
+                              model.file = leaders_model_V2)
+  save(Bayesian_Leaders_V2, file = "leaders_model_V2.Rdata")
+}
+
+Bayesian_Leaders_V2$BUGSoutput$summary %>% 
+  as.data.frame() %>% 
+  select(-`25%`, -`75%`) %>% 
+  knitr::kable()
+```
+
+## Traceplots 
+
+```{r}
+post_values_V2 = Bayesian_Leaders_V2$BUGSoutput$sims.matrix %>% 
+  as.data.frame() %>% 
+  mutate(i = row_number())
+
+post_values_V2 %>% 
+  tidyr::gather(key, value, "beta_0", "beta_1", "r", -i) %>% 
+  ggplot() + 
+  geom_line(aes(x = i, y = value, color = key)) + 
+  facet_grid(key~., scales = "free_y")
+
+post_values_V2 %>% 
+  tidyr::gather(key, value, `beta_type[2]`:`beta_type[5]`, -i) %>% 
+  ggplot() + 
+  geom_line(aes(x = i, y = value, color = key)) + 
+  facet_grid(key~., scales = "free_y")
+
+post_values_V2 %>% 
+  tidyr::gather(key, value, `beta_int[2]`:`beta_int[5]`, -i) %>% 
+  ggplot() + 
+  geom_line(aes(x = i, y = value, color = key)) + 
+  facet_grid(key~., scales = "free_y")
+```
+
 
 
