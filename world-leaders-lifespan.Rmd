@@ -202,7 +202,7 @@ levels(x_2)
 time_Francis <- 6.3694456 - mean(leaders$time)
 type_Francis <- 0
 present_length_Francis <- 83.702772
-  
+
 #obama
 time_Obama <- 6.6157426 - mean(leaders$time)
 type_Obama <- 5
@@ -245,23 +245,19 @@ leaders_model_V1 <- function() {
   r ~ dexp(0.001) # Prior on r
   
   # Predictive distribution of age at the new values
-  #
   beta_Francis <- beta_0 + beta_1*time_Francis 
   mu_Francis <- exp(beta_Francis)
   survival_Francis ~ dweib(r, mu_Francis) %_% T(present_length_Francis, upper_length)
   
-  beta_Obama <- beta_0 + beta_1*time_Obama + beta_type[type_Obama] + beta_int[type_Obama]*time_Obama
+  beta_Obama <- beta_0 + beta_1*time_Obama + 
+    beta_type[type_Obama] + beta_int[type_Obama]*time_Obama
   mu_Obama <- exp(beta_Obama)
   survival_Obama ~ dweib(r, mu_Obama) %_% T(present_length_Obama, upper_length)
   
-  beta_Naruhito <- beta_0 + beta_1*time_Naruhito + beta_type[type_Naruhito] + beta_int[type_Naruhito]*time_Naruhito
+  beta_Naruhito <- beta_0 + beta_1*time_Naruhito + beta_type[type_Naruhito] +
+    beta_int[type_Naruhito]*time_Naruhito
   mu_Naruhito <- exp(beta_Naruhito)
   survival_Naruhito ~ dweib(r, mu_Naruhito) %_% T(present_length_Naruhito, upper_length) 
-  
-  # Take into account the current pontificate length
-  # Also specify a sensible upper bound
-  #age_Francis_predictive <- age_at_election + survival_Francis
-  # Work also with age
 }
 ```
 
@@ -273,7 +269,6 @@ data_leaders <- list("n",
                      "x_1",
                      "x_2", 
                      "time_Francis",
-                     "type_Francis",
                      "present_length_Francis",
                      "upper_length",
                      "time_Obama",
@@ -283,7 +278,6 @@ data_leaders <- list("n",
                      "type_Naruhito",
                      "present_length_Naruhito")
 ```
-
 
 
 ```{r}
@@ -301,12 +295,13 @@ if (file.exists("leaders_model_V1.Rdata")) {
                                                      "survival_Obama",
                                                      "survival_Naruhito"
                               ), 
-                            
-                              n.iter = 200000, 
+                              
+                              n.iter = 300000, 
                               n.chains = 3,
                               model.file = leaders_model_V1)
   save(Bayesian_Leaders_V1, file = "leaders_model_V1.Rdata")
 }
+Bayesian_Leaders_V1
 ```
 
 
@@ -326,15 +321,15 @@ bugs1 <- bugs1 %>%
   tibble::column_to_rownames("Parameter")
 
 row.names(bugs1) <- c("$r$", "$\\beta_0$", "$\\beta_1$", 
-                     "$\\beta_{21}$","$\\beta_{22}$","$\\beta_{23}$","$\\beta_{24}$","$\\beta_{25}$",
-                     "$\\beta_{31}$","$\\beta_{32}$","$\\beta_{33}$","$\\beta_{34}$","$\\beta_{35}$")
+                      "$\\beta_{21}$","$\\beta_{22}$","$\\beta_{23}$","$\\beta_{24}$","$\\beta_{25}$",
+                      "$\\beta_{31}$","$\\beta_{32}$","$\\beta_{33}$","$\\beta_{34}$","$\\beta_{35}$")
 
 # filters out dummy parameters (beta_21, beta_31)
 bugs1 %>% 
   filter(sd != 0) %>% 
   knitr::kable(booktabs=T, 
-                    col.names = c("Estimate", "Std. Deviation", "95% CI", "$\\hat{R}$"),
-                    row.names = T) 
+               col.names = c("Estimate", "Std. Deviation", "95% CI", "$\\hat{R}$"),
+               row.names = T) 
 ```
 
 
@@ -401,19 +396,24 @@ leaders_model_V2 <- function() {
   r ~ dexp(1) # Prior on r
   
   # Predictive distribution of age at the new values
-  #
-  beta_Francis <- beta_0 + beta_1*age_Francis + beta_type[1] 
+  beta_Francis <- beta_0 + beta_1*time_Francis 
   mu_Francis <- exp(beta_Francis)
-  survival_Francis ~ dweib(r, mu_Francis) %_% T(present_length, upper_length)
-  # Take into account the current pontificate length
-  # Also specify a sensible upper bound
-  #age_Francis_predictive <- age_at_election + survival_Francis
-  # Work also with age
+  survival_Francis ~ dweib(r, mu_Francis) %_% T(present_length_Francis, upper_length)
+  
+  beta_Obama <- beta_0 + beta_1*time_Obama + 
+    beta_type[type_Obama] + beta_int[type_Obama]*time_Obama
+  mu_Obama <- exp(beta_Obama)
+  survival_Obama ~ dweib(r, mu_Obama) %_% T(present_length_Obama, upper_length)
+  
+  beta_Naruhito <- beta_0 + beta_1*time_Naruhito + beta_type[type_Naruhito] +
+    beta_int[type_Naruhito]*time_Naruhito
+  mu_Naruhito <- exp(beta_Naruhito)
+  survival_Naruhito ~ dweib(r, mu_Naruhito) %_% T(present_length_Naruhito, upper_length) 
 }
+
 if (file.exists("leaders_model_V2.Rdata")) {
   load(file = "leaders_model_V2.Rdata")
 } else {
-  
   Bayesian_Leaders_V2 <- jags(data = data_leaders,  
                               parameters.to.save = c("beta_0",
                                                      "beta_1",
@@ -421,11 +421,13 @@ if (file.exists("leaders_model_V2.Rdata")) {
                                                      "beta_int",
                                                      "r",
                                                      "survival_Francis"), 
-                              n.iter = 200000, 
+                              n.iter = 300000, 
                               n.chains = 3,
                               model.file = leaders_model_V2)
   save(Bayesian_Leaders_V2, file = "leaders_model_V2.Rdata")
 }
+
+Bayesian_Leaders_V2
 
 Bayesian_Leaders_V2$BUGSoutput$summary %>% 
   as.data.frame() %>% 
