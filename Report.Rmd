@@ -9,6 +9,25 @@ output:
      latex_engine: xelatex
      number_sections: true
 ---
+```{r, function checking for installed packages, include=FALSE}
+# Validate that all necessary packaged have been downloaded, install otherwise or throw err package DNE
+pkgTest <- function(x)
+{
+  if (!require(x,character.only = TRUE))
+  {
+    install.packages(x,repos = "http://cran.r-project.org", dep=TRUE)
+    if(!require(x,character.only = TRUE)) stop("Package not found")
+  }
+}
+```
+
+```{r include=FALSE}
+#Installing packages 
+pkgTest("tidyverse")
+pkgTest("knitr")
+pkgTest("kableExtra")
+pkgTest("stringr")
+```
 
 ```{r include=FALSE}
 knitr::opts_chunk$set(echo = FALSE,
@@ -18,6 +37,7 @@ knitr::opts_chunk$set(echo = FALSE,
 
 ```{r out.width="50%"}
 library(tidyverse)
+library(knitr)
 library(kableExtra)
 library(stringr)
 
