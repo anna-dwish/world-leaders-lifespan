@@ -96,50 +96,45 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit. Cras sit amet mauris in
 
 # Introduction 
 
+In an investigation of the post-election survival times of popes, Stander et al. (2018) highlighted predictive results from Bayesian analysis and urged researchers to consider other world leaders in their approach to understand survival analysis more critically. Our study extends this work by analyzing the survival times of 177 world leaders. These include Roman Catholic Popes, United States Presidents, Chinese Emperors, Japanese Emperors, and Dalai Lamas from 1325 to current day. 
+
+In this paper, we discuss a Weibull distribution modelling the lifespan of world leaders. We  determine how year of birth and type of leadership are related to a leader’s lifespan, and if the relationship between year of birth and lifespan is dependent on the type of leadership. In addition, we will provide point and interval predictions of the lifespans of living leaders in our data as well as use their predictive distributions to make comparitive statements. 
+
 # Data 
 
-## Distributions of Lifespan Across Leadership Type
+To address the above research objectives, we analyzed data on the life expectancy of 177 world leaders. Leaders in this dataset range from Pope Gregory XII, born in 1325, to President Obama, born in 1961. Life expectancy was defined to be either the leader’s current age, if alive, or age of death, if deceased. The 10 leaders in the dataset that are currently alive are considered right censored observations -- that is, we cannot know their exact age of death, but do know their current lifespan. 
 
-```{r  eval=FALSE}
-boxplot(Age.Event ~ Type, data = leaders, main="Lifespans vs Type of Leader", ylab="Lifespan (yrs)", xlab="Leader Type")
+Covariates of interest in this study are *type* and *time*. Type is categorical variable corresponding to the 5 varieties of world leader. Of the type levels, Popes are the most represented in the dataset with 63 observations. In contrast, Dalai Lamas comprise the smallest group, with only 14 instances. The time covariate represents the leader’s year of birth, measured as the number of centuries since 1300. For example, as Pope Francis was born roughly 637 years after January 1, 1300, his time value is represented as 6.37. We opted for this shifted and scaled version of birth year in order to prevent larger year values (1961, for example) from skewing estimates. 
+
+Below we will present some preliminary visualizations regarding our covariates of interest and survival outcome. In these visualizations, we use the term **transformed birth year** to refer to the time covariate, in order to provide a more intuitive understanding.  First, we will look at the distribution of lifespan across the 177 world leaders. 
+
+
+
+## Distributions of Lifespan
+
+```{r}
+ggplot(leaders, aes(x=Age.Event)) + 
+  geom_histogram(color="black", fill="white", bins = 10) + 
+  labs(title="Distribution of Lifespan") + xlab("Lifespan (yrs)") + geom_vline(xintercept = median(leaders$Age.Event), color = "red") + annotate(geom = "text", x = 83, y = 45, label = "median: 67.5")
 ```
+
+We see that lifespan follows a left skewed distribution with a median value of 67.5 (indicated in red). Next, we will look at box plot distributions of transformed birth year by leadership type. 
+
+## Distribution of Transformed Birth Year by Leadership Type
+```{r}
+boxplot(time ~ Type, data = leaders, main="Distribution of Transformed Birth Year by Type of Leader", ylab="Transformed Birth Year", xlab="Leader Type")
+```
+
+Among the Chinese Emperors, Japanese Emperors, and Dalai Lamas, the interquartile ranges of median lifespan largely overlap. As can be seen, popes and U.S. presidents appear to have a slightly higher median lifespan relative to Chinese Emperors, and Dalai Lamas. Finally, we will examine the relationship between lifespan and birth year for each type of leadership.
 
 ## Interaction Plot
-
-```{r  eval=FALSE}
-qplot(x = time, y = Age.Event, data = leaders, color = Type) +
-  geom_smooth(method = "lm", se=FALSE) + ylab("Lifespan (yrs)") + xlab("Relative Birth Date")
+```{r}
+ggplot(leaders, aes(x=time, y=Age.Event, shape=Type, color=Type)) +
+  geom_point() + labs(title="Lifespan vs Transformed Birth Year") + 
+  ylab("Lifespan (yrs)") + xlab("Transformed Birth Year") +geom_smooth(method = "lm", se=FALSE)
 ```
 
-## Lexis Diagrams of Lifespans Across Leadership Type
-
-```{r eval=FALSE}
-leaderTypeTitles <- c("Popes", "US Presidents", "Chinese Emperors", "Dalai Lamas","Japanese Emperors")
-names(leaderTypeTitles) <- c("Pope", "UsPres", "ChinaEmp","DalaiLama","JapanEmp")
-
-plotLifeSpan <- function(leaderType) {
-  leaders.lexis <- leaders %>% filter(Type == leaderType) %>% data.frame
-  
-  # Used code from http://search.r-project.org/library/Epi/html/plot.Lexis.html to generate lexis plot
-  leaders.lexis$bt <- as.integer(substring(leaders.lexis$Birth.Date,0,4))
-  leaders.lexis$ex <- as.integer(substring(leaders.lexis$Event.Date,0,4))
-  
-  # Define as Lexis object with timescales calendar time and age
-  lifespans <- Lexis( entry = list( per=bt ),
-                      exit = list( per=ex, age=Age.Event ),
-                      exit.status = Fail,
-                      data = leaders.lexis )
-  plotTitle = paste0("Lexis Diagram of Lifespans of ",leaderTypeTitles[leaderType])
-  plot(lifespans, grid=0:20*5, col='black', xaxs="i", yaxs="i",
-       xlim=c(min(leaders.lexis$bt),2030), ylim=c(0,100), lwd=3, las=1 , main=plotTitle,
-       ylab="Lifespan (yrs)", xlab="Century") 
-  points( lifespans, pch=c(NA,16)[lifespans$lex.Xst+1], col="red", cex=1.5 )
-}
-
-for (leaderType in unique(leaders$Type)) {
-  plotLifeSpan(leaderType)
-}
-```
+It appears as though lifespan over time has increased at similar rates across Chinese Emperors, Japanese Emperors, US Presidents, and Popes. However, for the Dalai Lamas, the plot indicates that lifespan has decreased over time. This unexpected trend can be attributed to the untimely demise of several Dalai Lamas in the 19th and 20th centuries, with causes of death ranging from common illnesses to ceiling collapses [1] . 
 
 # Methodology
 
