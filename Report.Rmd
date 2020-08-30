@@ -138,21 +138,34 @@ It appears as though lifespan over time has increased at similar rates across Ch
 
 ## Model Selection 
 
-We propose a Weibull distribution to model the life expectancy $T_i$ of the $i$th leader. The first parameter $r > 0$ of the Weibull distribution is a positive scale parameter, and is constant across all leaders. We then take the log of the second parameter, $mu_i > 0$, as a linear function of the covariates.
+We propose a Weibull distribution to model the life expectancy $T_i$ for the $i$th leader. This distribution is more flexible a generalization of the exponential distribution that can be used to model survival outcomes. The Weibull probability density function for $T_i$ takes the following form:
+
+$$
+f_{T_i}(t_i|r, \mu_i) = r\ \mu_i\ t_i^{r-1}\ exp(-\mu_i\ {t_i}^r),\ \ \ \ \ r,\  \mu_i, \ t_i >0
+$$
+
+The first parameter $r > 0$ of the Weibull distribution is a positive scale parameter, and is constant across all leaders. We then take the log of the second parameter, $mu_i > 0$, as a linear function of the $time$ and $type$ covariates. For ease of interpretability, the $time$ covariate was mean-centered.
 
 Our proposed model is as follows: 
 
 $$
 \begin{aligned}
 T_i \sim & \,Weibull(r, \mu_i)  \\
-log(\mu_i) = \beta_0 + \beta_1(time_i) + \sum_{j=2}^{5} \beta_{2j} & (I(Type_i = t_j)) + \sum_{j=2}^{5}  \beta_{3j}(time_i * I(Type_i = t_j)), &(1.1)
+log(\mu_i) = \beta_0 + \beta_1\ time_i + \sum_{j=2}^{5} \beta_{2j} & \ I(type_i = j) + \sum_{j=2}^{5}  \beta_{3j}\  I(type_i = j)\ *time_i\ , &(1.1)
 \end{aligned}
 $$
+where log is base $e$.
 
+In the above formulation, $i$ corresponds to each world leader and $T_i$ refers to their life expectancy. $time_i$ is the covariate representing birth year, measured in the number of centuries after 1300 that each leader was born, while $type_i$ refers to the individual's type of leadership. The reference level $j = 1$ for the $type$ covariate is Pope, as it forms the largest category ($n=63$). The remaining levels $j = 2, 3, 4, 5$ correspond to Chinese Emperor, Dalai Lama, Japanese Emperor, and U.S. President respectively. The third term in the linear combination of covariates represents an interaction effect between $type$ and $time$. This interaction is used to account for  differences in the relationship between survival time and birth year that may exist across leadership types. 
 
-where $i$ corresponds to each world leader, and for each leader $i$, $T_i$ refers to their life expectancy, $time_i$ is the number of hundreds of years since 1300 that each leader was born, $Type_i$ refers to their leadership type, with $t = (2, 3, 4, 5)$ where 2=Chinese Emperor, 3=Dalai Lama, 4=Japanese Emperor, and 5=US President. The reference level was set to be Pope, because it is the largest category ($n=63$).
+When modelling survival time $T_i$ in this manner, it can be shown that the log mean of $T_i$ is a linear function of the covariates of interest. Specifically, 
 
-$\beta_0$ corresponds with the intercept, $\beta_1$ is the coefficient corresponding to `Time`, and for $j \in (1, 2, 3, 4, 5)$, $\beta_{2j}$ is the coefficient corresponding to the respective leadership type, and $\beta_{3j}$ is the coefficient corresponding to the interaction between `Time` and the respective leadership type.
+$$
+\begin{aligned}
+log(mean[T_i]) =  \alpha_0 + \alpha_1\ time_i + \sum_{j=2}^{5} \alpha_{2j} & \ I(type_i = j) + \sum_{j=2}^{5}  \alpha_{3j}\  I(type_i = j)\ *time_i\
+\end{aligned}
+$$
+where $\alpha_j = \frac{\beta_j}{r}$ for all j. This parameterization will be useful in making meaningful interpretation. When exponentiating both sides, for example, we can see that an increase in one unit of $time_i$ (which in our context, would correspond to an increase in century) results in a multiplicative change  of $exp(\alpha_1)$ in the mean survival time. This type of interpretation will be used later in this paper in order to properly quantify the effects of $time$ and $type$ on lifespan. 
 
 ## Choice of Prior Distributions
 
@@ -161,11 +174,16 @@ In our initial model, we adopted the following prior distributions for $r, \beta
 $$
 \begin{aligned}
 &r \sim  \Gamma(25, 0.2)\\ 
-\beta_0, \beta_1, &\beta_{2j}, \beta_{3j} \sim N(0, 100)
+\beta_0,\ \beta_1,\ &\beta_{2j},\ \beta_{3j} \sim N(0, 1), \ \ \ \  j = 2, 3, 4, 5
 \end{aligned}
 $$
-for $j \in(1,2,3,4,5)$. 
-These are informative priors (some other explanation). We consider other choices of prior distributions, which is discussed in Section ___. 
+
+Though there does not exist a strong body of literature to inform these priors, our choices resulted from research and consideration of context. For the prior on the $B_1$, the coefficient corresponding to the $time$ covariate, we decided to use a $N(0, 1)$ prior. We were motivated to explore this low variance prior closely centered around zero from a study [] citing that our lifespans do not significantly differ from those several centuries ago. Thus, 
+
+
+Our prior on r, the positive scale parameter of the Weibull distribution, was informed by the context of the study. R values between 0 and 1 indicate a decreasing rate of failure over time, while those greater represent an increasing rate of failure. It can be assumed that the rate of death for world leaders increases with age-- equivalently, an r value greater than 1. This warranted an informative Gamma (25, 0.2) prior with mean 5 and variance 1, reflecting  our certainty of R being a value greater than 1. 
+
+
 
 ## Model Validation
 
