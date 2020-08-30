@@ -78,7 +78,9 @@ leaders <- leaders %>%
 ## update Emperor Jianwen
 leaders <- leaders %>% 
   mutate(Fail = case_when(Name == "Jianwen Emperor" ~ 1,
-                          TRUE ~ Fail)) %>% data.frame
+                          TRUE ~ Fail),
+         Censored = case_when(Name == "Jianwen Emperor" ~ 0,
+                          TRUE ~ Censored)) %>% data.frame
 
 ## multiplying time by 10 
 leaders <- leaders %>% 
@@ -177,7 +179,7 @@ censored <- filtered_leaders$Censored
 #
 survival <- ifelse(censored == 0, Age.Event, NA)
 #
-censoring_limits <- ifelse(censored == 0, 100, Age.Event)
+censoring_limits <- ifelse(censored == 0, 110, Age.Event)
 #
 # Covariates (centered)
 #
@@ -208,9 +210,8 @@ time_Naruhito <- 6.6012868 - mean(leaders$time)
 type_Naruhito <- 4
 present_length_Naruhito <- 60.518652
 
-upper_length <- 100
-
-#present_length <- filtered_leaders$Age.Event
+present_length <- ifelse(censored == 0, 0, filtered_leaders$Age.Event)
+upper_length <- 110
 ```
 
 ```{r}
@@ -220,35 +221,34 @@ data_leaders <- list("n",
                      "censoring_limits",
                      "x_1",
                      "x_2", 
+                     "present_length",
+                     "upper_length",
                      "time_Francis",
                      "present_length_Francis",
-                    # "present_length",
-                     "upper_length",
                      "time_Obama",
                      "type_Obama",
+                     "present_length_Obama",
                      "time_DL",
                      "type_DL",
                      "present_length_DL",
-                     "present_length_Obama",
                      "time_Naruhito",
                      "type_Naruhito",
                      "present_length_Naruhito")
 ```
 
 ## Create Model Text for RJags For Different Priors
+
 ```{r}
 generate_model_text = function(priors=""){
   model_file <- tempfile()
   
   likelihood = "#Likelihood
   for (i in 1:n){ 
-
     censored[i] ~ dinterval(survival[i], censoring_limits[i]) 
-    
     survival[i] ~ dweib(r, mu[i]) # Basic Weibull assumption
     mu[i] <- exp(beta[i])  # Defining beta as log(mu)
     beta[i] <- beta_0 + beta_1*x_1[i] + beta_type[x_2[i]] + beta_int[x_2[i]] * x_1[i] 
-    y_pred[i] ~  dweib(r, mu[i]) #T(present_length[i], upper_length)
+    y_pred_censored[i] ~ dweib(r, mu[i])T(present_length[i], upper_length)
   }
     
   #Priors
@@ -309,7 +309,7 @@ generate_model = function(priors="",model_name=""){
                                                "beta_type",
                                                "beta_int",
                                                "r",
-                                                "y_pred",
+                                               "y_pred_censored",
                                                "survival_Francis",
                                                "survival_Obama",
                                                "survival_Naruhito",
@@ -323,13 +323,30 @@ generate_model = function(priors="",model_name=""){
                                                "percentage_increase_int",
                                                "survival"
                         ), 
-                        n.iter = 1500, 
+                        n.iter = 10000, 
                         n.chains = 3,
                         model.file = model_file)
     save(rjags_model, file = model_name)
   }
   return(rjags_model)
 }
+```
+
+## Model 7a - r=gamma(25,0.2), Betas: N(0,1) - THIS IS THE GOOD ONE 
+
+```{r}
+priors <- "
+  for(i in 2:5) {
+    beta_type[i] ~ dnorm(0.0, 1)
+    beta_int[i] ~ dnorm(0.0, 1)
+  }
+  
+  beta_0 ~ dnorm(0.0, 1)
+  beta_1 ~ dnorm(0.0, 1)
+  
+  r ~ dgamma(25,0.2) # Prior on 
+  "
+Bayesian_Leaders_output <- generate_model(priors,"leaders_model_r_25_2e-1_beta_1.Rdata")
 ```
 
 ## Display Clean Model Output From RJAGS
@@ -361,6 +378,11 @@ priors <- "
   "
 Bayesian_Leaders_V1a <- generate_model(priors,"leaders_model_r_1e-3_beta_1.Rdata")
 Bayesian_Leaders_V1a
+Bayesian_Leaders_V1a$BUGSoutput$summary[aa,]
+Bayesian_Leaders_V1a$BUGSoutput$summary[c("survival_Francis",
+                                          "survival_Obama",
+                                          "survival_Naruhito",
+                                          "survival_DL"), ] 
 ```
 
 ## Model 1b: rexp(0.001), Betas: N(0,100)
@@ -602,7 +624,8 @@ priors <- "
   r ~ dgamma(25,0.2) # Prior on 
   "
 Bayesian_Leaders_V7a <- generate_model(priors,"leaders_model_r_25_2e-1_beta_1.Rdata")
-Bayesian_Leaders_V7a
+Bayesian_Leaders_V7a$BUGSoutput$summary["y_pred_censored[102]",]
+Bayesian_Leaders_V7a$BUGSoutput$summary["y_pred_not_censored[102]",]
 
 tidybayes::gather_draws(Bayesian_Leaders_V7a %>% as.mcmc(), y_pred[i]) %>% 
   ungroup() %>%
@@ -612,7 +635,7 @@ tidybayes::gather_draws(Bayesian_Leaders_V7a %>% as.mcmc(), y_pred[i]) %>%
 
 
 bayesplot::ppc_stat(filtered_leaders %>% filter(Name == "John Paul II") %>% pull(Age.Event),
-                   tidybayes::gather_draws(Bayesian_Leaders_V7a %>% as.mcmc(), y_pred[i]) %>% filter(i==2) %>% pull(.value) %>% as.matrix() )
+                    tidybayes::gather_draws(Bayesian_Leaders_V7a %>% as.mcmc(), y_pred[i]) %>% filter(i==2) %>% pull(.value) %>% as.matrix() )
 ```
 
 ```{r}
@@ -688,7 +711,7 @@ tidybayes::gather_draws(Bayesian_Leaders_V7b %>% as.mcmc(), y_pred[i]) %>%
 
 
 bayesplot::ppc_stat(filtered_leaders %>% filter(Name == "John Paul II") %>% pull(Age.Event),
-                   tidybayes::gather_draws(Bayesian_Leaders_V7b %>% as.mcmc(), y_pred[i]) %>% filter(i==2) %>% pull(.value) %>% as.matrix() )
+                    tidybayes::gather_draws(Bayesian_Leaders_V7b %>% as.mcmc(), y_pred[i]) %>% filter(i==2) %>% pull(.value) %>% as.matrix() )
 ```
 
 # Model Analysis
@@ -822,12 +845,12 @@ scale_and_percent
 #extracting posterior predictions for each individual
 modelOutput <- Bayesian_Leaders_V7a$BUGSoutput$summary %>% as.data.frame()
 survivalPredicted <- modelOutput[38:210, ] %>% select("mean", "sd", "2.5%", "50%", "97.5%")
- 
+
 #creating dataframe with useful information (including prediction residuals and standardized residuals)
-leader <- l$Name
-censored_value <- as.factor(l$Censored)
-actual_survival <- l$Age.Event
-time <- l$time
+leader <- filtered_leaders$Name
+censored_value <- as.factor(filtered_leaders$Censored)
+actual_survival <- filtered_leaders$Age.Event
+time <- filtered_leaders$time
 survivalPredicted <- survivalPredicted %>%
   mutate(actual = actual_survival) %>%
   mutate(name = leader) %>%
@@ -844,8 +867,8 @@ shapes = c(16, 17)
 shapes <- shapes[as.numeric(survivalPredicted$Censored)]
 plot(survivalPredicted$Standardized_Residual, col= survivalPredicted$Censored, pch = shapes)
 legend("topright", legend = c("Censored", "Non-Censored"),
-      col =  c("black", "red"),
-      pch = c(16, 17) )
+       col =  c("black", "red"),
+       pch = c(16, 17) )
 
 ``` 
 
