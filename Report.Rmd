@@ -14,8 +14,6 @@ output:
 knitr::opts_chunk$set(echo = FALSE,
                       message = FALSE,
                       warning = FALSE)
-options(knitr.table.format = "latex")
-
 ```
 
 ```{r out.width="50%"}
@@ -294,78 +292,46 @@ Bayesian_Leader_output$BUGSoutput$summary[c("survival_Francis",
 ```
 
 ```{r}
-r_vals <- c("1e-3", "1", "10_5e-1", "25_2e-1")
-b_vals <- c("1", "100")
-sensitivity_plot <- function(x){
-  par(mfrow = c(4, 2))
-  par(mar=c(1,1,1,1))
-  row = 0
-  plots = list()
-  for (r in r_vals){
-    col = 0
-    for (b in b_vals){
-      file_name = paste0("leaders_model_r_",r,"_beta_",b,".Rdata")
-      if (file.exists(file_name)) {
-        
-        load(file = file_name)
-        df <- as.data.frame(rjags_model$BUGSoutput$sims.matrix)
-        d <- density(df[,x]) # returns the density data
-        r_label = paste0("R Prior: ",r)
-        b_label = paste0("B Variance Prior: ", b)
-        if (col == 1 && row == 0){
-          plots <- append(plots,plot(d,main=b_label))
-        }
-        else if (col == 0 && row==0){
-          plots <- append(plots,plot(d,main=b_label,ylab=r_label))
-        }
-        else if (col == 0){
-          plots <- append(plots,plot(d,main="",ylab=r_label))
-        }
-        else {
-          plots <- append(plots,plot(d,main=""))
-        }
-        col = col + 1
-      }
-      else{
-        fail_load = paste0("Failed to load file: ", file_name)
-        print(fail_load)
-      }
-    }
-    row = row + 1
-  }
-  grid.arrange(plots,nrow=4,ncol=2)
-}
-sensitivity_plot("survival_Francis")
-sensitivity_plot("r")
-sensitivity_plot("beta_1")
-```
-
-```{r}
 r_vals <- c("1e-3", "1", "10_5e-1")
 b_vals <- c("1", "100")
-r = r_vals[1]
-b = b_vals[1]
-file_name = paste0("leaders_model_r_",r,"_beta_",b,".Rdata")
-load(file_name)
-df <- as.data.frame(rjags_model$BUGSoutput$sims.matrix)
+r_vals[3]
 
-sensitivity_df = data.frame()
-for (r in r_vals) {
-  for (b in b_vals) {
-    file_name = paste0("leaders_model_r_",r,"_beta_",b,".Rdata")
-    load(file_name)
-    wait = rjags_model$BUGSoutput$sims.matrix %>% as.data.frame() %>% select(survival_Francis) %>% 
-      mutate(r = expression(paste0("r = ", r, " beta = ", b)))
-    sensitivity_df = sensitivity_df %>% bind_rows(wait)
+str_split(r_vals[3], "_")[[1]][2]
+sensitivity_df = function(param) {
+  df = data.frame()
+  for (r in r_vals) {
+    for (b in b_vals) {
+      file_name = paste0("leaders_model_r_",r,"_beta_",b,".Rdata")
+      load(file_name)
+      
+      param_df = rjags_model$BUGSoutput$sims.matrix %>% 
+        as.data.frame() %>%
+        select(param) %>% 
+        mutate(r = case_when(
+          r == "1e-3" ~ "0.001",
+          r == "10_5e-1" ~ "10_0.5",
+          r == "25_2e-1" ~ "25_0.2",
+          TRUE ~ as.character(r)),
+          priors = ifelse(str_detect(r, "_"),
+                          paste0("r ~ Ga(", str_split(r, "_")[[1]][1], ", ", str_split(r, "_")[[1]][2], "), beta ~ N(0, ", b, ")"),
+                          
+                          paste0("r ~ exp(", r, "), beta ~ N(0, ", b, ")")
+          ))
+      df = df %>% bind_rows(param_df)
+    }
   }
+  
+  return(df) 
 }
-sensitivity_df %>% 
+
+sensitivity_df("beta_1")  %>% 
   ggplot() + 
-  geom_density(aes(x = survival_Francis)) + 
-  facet_wrap(r~.,  scales = "free")
+  geom_density(aes(x = beta_1)) + 
+  labs(title = expression(paste("Sensitivity Analysis for Different Priors on r and ", beta))) + 
+  facet_wrap(priors~.,  scales = "free", nrow = 2) 
+
 ``` 
 
-```{r}
 # Discussion 
 
 ## Posterior Predictive Distribution 
@@ -374,3 +340,4 @@ sensitivity_df %>%
 
 #########################
 where $\beta_0$ corresponds with the intercept, $\beta_1$ is the coefficient corresponding to `Time`, $\beta_{type} = (0, \beta_2, \beta_3, \beta_4, \beta_5)$ is the vector of coefficients corresponding to leadership types of Popes, Chinese Emperors, Dalai Lamas, Japanese Emperors, and US Presidents respectively, and $\beta_{type*time} = (0, \beta_6, \beta_7, \beta_8, \beta_9)$ is the vector of coefficient corresponding  to the interaction between `Time` and leadership type.
+
