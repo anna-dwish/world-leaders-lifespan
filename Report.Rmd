@@ -151,12 +151,14 @@ Our proposed model is as follows:
 $$
 \begin{aligned}
 T_i \sim & \,Weibull(r, \mu_i)  \\
-log(\mu_i) = \beta_0 + \beta_1\ time_i + \sum_{j=2}^{5} \beta_{2j} & \ I(type_i = j) + \sum_{j=2}^{5}  \beta_{3j}\  I(type_i = j)\ *time_i\ , &(1.1)
+log(\mu_i) = \beta_0 + \beta_1\ time_i + \sum_{j=2}^{5} \beta_{2j} & \ I(type_i = j) + \sum_{j=2}^{5}  \beta_{3j}\  I(type_i = j)*time_i\ , &(1.1)
 \end{aligned}
 $$
 where log is base $e$.
 
-In the above formulation, $i$ corresponds to each world leader and $T_i$ refers to their life expectancy. $time_i$ is the covariate representing birth year, measured in the number of centuries after 1300 that each leader was born, while $type_i$ refers to the individual's type of leadership. The reference level $j = 1$ for the $type$ covariate is Pope, as it forms the largest category ($n=63$). The remaining levels $j = 2, 3, 4, 5$ correspond to Chinese Emperor, Dalai Lama, Japanese Emperor, and U.S. President respectively. The third term in the linear combination of covariates represents an interaction effect between $type$ and $time$. This interaction is used to account for  differences in the relationship between survival time and birth year that may exist across leadership types. 
+In Model 1.1, $i$ corresponds to each world leader and $T_i$ refers to their life expectancy. $time_i$ is the covariate representing birth year, measured in the number of centuries after 1300 that each leader was born, while $type_i$ refers to the individual's type of leadership. The reference level $j = 1$ for the $type$ covariate is Pope, as it forms the largest category ($n=63$). The remaining levels $j = 2, 3, 4, 5$ correspond to Chinese Emperor, Dalai Lama, Japanese Emperor, and U.S. President respectively. The third term in the linear combination of covariates represents an interaction effect between $type$ and $time$. This interaction is used to account for  differences in the relationship between survival time and birth year that may exist across leadership types. 
+
+To account for censored observations, we sample $T_i$ from a truncated distribution, $T_i \sim  \,Weibull(r,\, \mu_i)\,T(present\_age_i, \, upper\_age)$. $present\_age_i$ is 0 for a leader who is deceased and their current age if they are still alive. For deceased leaders, the lower bound of 0 prevents the model from making assumptions about the lifespan of that leader. For leaders who are currently alive, it ensures the model does not sample a life expectancy that is less than their current age. We set the $upper_age$ to be 110 - the United Nations predicts that only 0.0074% of the world's population will celebrate their 100th birthday and become a centenarian(https://population.un.org/wpp/Download/Standard/Population/), and the Gerontology Research Group estimates only 0.15% to 0.25% of centenarians will reach the age of 110(http://supercentenarian-research-foundation.org/TableE.aspx). 
 
 When modelling survival time $T_i$ in this manner, it can be shown that the log mean of $T_i$ is a linear function of the covariates of interest. Specifically, 
 
