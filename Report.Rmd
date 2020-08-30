@@ -6,44 +6,54 @@ fontsize: 12pt
 geometry: "left=2cm,right=2cm,top=2cm,bottom=2cm"
 output: 
   pdf_document:
-      latex_engine: xelatex
-      number_sections: true
+     latex_engine: xelatex
+     number_sections: true
 ---
 
 ```{r include=FALSE}
 knitr::opts_chunk$set(echo = FALSE,
                       message = FALSE,
                       warning = FALSE)
+
 ```
 
-```{r}
+```{r out.width="50%"}
 library(tidyverse)
 library(kableExtra)
-load("leaders_model_V1.Rdata")
-bugs1 <- Bayesian_Leaders_V1$BUGSoutput$summary %>% 
-  as.data.frame() 
-bugs1 <- bugs1[c(14, 1:2, 8:12, 3:7),]
-bugs1 <- bugs1 %>% 
-  tibble::rownames_to_column("Parameter") %>% 
-  mutate_if(is.numeric, round, digits = 3) %>% 
-  mutate("95% CI" = paste0("(", `2.5%`, ", ", `97.5%`,  ")")) %>% 
-  select(-(`2.5%`:`97.5%`)) %>% 
-  select(Parameter, mean, sd, `95% CI`, Rhat) 
-bugs1$Parameter <- c("r", "(Intercept)", "Time", "Pope", "ChinaEmp", "DalaiLama", "JapanEmp", "UsPres",
-                     "Pope*Time", "ChinaEmp*Time", "DalaiLama*Time", "JapanEmp*Time", "UsPres*Time")
+# load("leaders_model_r_1e-1_beta_100.Rdata")
+# Bayesian_Leaders_V3b <- rjags_model
+# bugs1 <- Bayesian_Leaders_V3b$BUGSoutput$summary %>% 
+#   as.data.frame() 
+# rows <- c("r", "beta_0", "beta_1", 
+#           "beta_type[1]", "beta_type[2]", "beta_type[3]", "beta_type[4]", "beta_type[5]",
+#           "beta_int[1]", "beta_int[2]", "beta_int[3]", "beta_int[4]", "beta_int[5]"
+# )
+# bugs1 <- bugs1[rows,]
+# bugs1 <- bugs1 %>% 
+#   tibble::rownames_to_column("Parameter") %>% 
+#   mutate_if(is.numeric, round, digits = 3) %>% 
+#   mutate("95% CI" = paste0("(", `2.5%`, ", ", `97.5%`,  ")")) %>% 
+#   select(-(`2.5%`:`97.5%`)) %>% 
+#   select(Parameter, mean, sd, `95% CI`, Rhat) 
+# bugs1$Parameter <- c("r", "(Intercept)", "Time", "Pope", "ChinaEmp", "DalaiLama", "JapanEmp", "UsPres",
+#                      "Pope*Time", "ChinaEmp*Time", "DalaiLama*Time", "JapanEmp*Time", "UsPres*Time")
+# 
+# bugs1 %>% 
+#   mutate(mean = ifelse((mean == 0 & sd == 0), "(Reference)", mean),
+#          sd = ifelse((mean == "(Reference)" & sd == 0),"", sd),
+#          `95% CI` = ifelse((mean == "(Reference)" & sd == ""), "", `95% CI`),
+#          Rhat = ifelse((mean == "(Reference)" & sd == ""), "", Rhat)) %>% 
+#   kableExtra::kbl(booktabs = T, caption = "$\\hat\\beta$s obtained with Model, with 95\\% Confidence Intervals (CI)",
+#                   col.names = c("Parameter", "Estimate", "Std. Deviation", "95% CI", "Rhat")) %>% 
+#   #kable_styling(font_size = 10) %>% 
+#   
+#   pack_rows("Type", 4,8) %>% 
+#   pack_rows("Type*Time", 9,13)
 
-bugs1 %>% 
-  mutate(mean = ifelse((mean == 0 & sd == 0), "(Reference)", mean),
-         sd = ifelse((mean == "(Reference)" & sd == 0),"", sd),
-         `95% CI` = ifelse((mean == "(Reference)" & sd == ""), "", `95% CI`),
-         Rhat = ifelse((mean == "(Reference)" & sd == ""), "", Rhat)) %>% 
-  kableExtra::kbl(booktabs = T,"latex",
-    col.names = c("Parameter", "Estimate", "Std. Deviation", "95% CI", "Rhat")) %>% 
-  kable_styling(position = "float_right", full_width = F) %>% 
-  pack_rows("Type", 4,8) %>% 
-  pack_rows("Type*Time", 9,13) %>%
-  footnote()
+#ggplot()
 ```
+
+
 
 Lorem ipsum dolor sit amet, consectetur adipiscing elit. Cras sit amet mauris in ex ultricies elementum vel rutrum dolor. Phasellus tempor convallis dui, in hendrerit mauris placerat scelerisque. Maecenas a accumsan enim, a maximus velit. Pellentesque in risus eget est faucibus convallis nec at nulla. Phasellus nec lacinia justo. Morbi fermentum, orci id varius accumsan, nibh neque porttitor ipsum, consectetur luctus risus arcu ac ex. Aenean a luctus augue. Suspendisse et auctor nisl. Suspendisse cursus ultrices quam non vulputate. Phasellus et pharetra neque, vel feugiat erat. Sed feugiat elit at mauris commodo consequat. Sed congue lectus id mattis hendrerit. Mauris turpis nisl, congue eget velit sed, imperdiet convallis magna. Nam accumsan urna risus, non feugiat odio vehicula eget.
 
@@ -57,16 +67,16 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit. Cras sit amet mauris in
 
 We propose a Weibull distribution to model the life expectancy $T_i$ of the $i$th leader. The first parameter $r$ of the Weibull distribution is a positive scale parameter. We then take the log of $mu_i$ as a linear function of the covariates.
 
-Our initial proposed model is as follows: 
+Our proposed model is as follows: 
 
 $$
-\begin{align}
-T_i \sim Weibull(r, \mu_i) \\
-log(\mu_i) = \beta_0 + \beta_1(time_i) + \sum_{j=1}^{5} \beta_{2j}(I(Type_i = t_j)) +  \sum_{j=1}^{5}  \beta_{3j}(time_i * I(Type_i = t_j)),
-\end{align}
+\begin{align*}
+T_i \sim & \,Weibull(r, \mu_i)  \\
+log(\mu_i) = \beta_0 + \beta_1(time_i) + \sum_{j=2}^{5} \beta_{2j} & (I(Type_i = t_j)) +  \sum_{j=2}^{5}  \beta_{3j}(time_i * I(Type_i = t_j)), &(1.1)
+\end{align*}
 $$
 
-where $i$ corresponds to each world leader, and for each leader $i$, $T_i$ refers to their life expectancy, $time_i$ is the number of hundreds of years since 1300 that each leader was born, $Type_i$ refers to their leadership type, with $t = (1, 2, 3, 4, 5)$ where 1=Pope, 2=Chinese Emperor, 3=Dalai Lama, 4=Japanese Emperor, and 5=US President (Pope was chosen as the baseline category .. WHY). 
+where $i$ corresponds to each world leader, and for each leader $i$, $T_i$ refers to their life expectancy, $time_i$ is the number of hundreds of years since 1300 that each leader was born, $Type_i$ refers to their leadership type, with $t = (2, 3, 4, 5)$ where 2=Chinese Emperor, 3=Dalai Lama, 4=Japanese Emperor, and 5=US President. The reference level was set to be Pope, because it is the largest category ($n=63$).
 
 $\beta_0$ corresponds with the intercept, $\beta_1$ is the coefficient corresponding to `Time`, and for $j \in (1, 2, 3, 4, 5)$, $\beta_{2j}$ is the coefficient corresponding to the respective leadership type, and $\beta_{3j}$ is the coefficient corresponding to the interaction between `Time` and the respective leadership type.
 
@@ -75,17 +85,65 @@ $\beta_0$ corresponds with the intercept, $\beta_1$ is the coefficient correspon
 In our initial model, we adopted the following prior distributions for $r, \beta_1, \beta_{2j}$ and $\beta_{3j}$: 
 
 $$
-r \sim exp(0.001) \\ 
-\beta_0, \beta_1, \beta_{type}, \beta_{type*time} \sim N(0, 10000)
+\begin{aligned}
+&r \sim  \Gamma(25, 0.2)\\ 
+\beta_0, \beta_1, &\beta_{2j}, \beta_{3j} \sim N(0, 100)
+\end{aligned}
 $$
-
-These flat priors allow for a wide range of possible parameter values. We can allow for such uncertainty because of a lack of previous knowledge about these parameters. 
+for $j \in(1,2,3,4,5)$. 
+These are informative priors (some other explanation). We consider other choices of prior distributions, which is discussed in Section ___. 
 
 ## Model Validation
 
-We fit our initial model on the data to obtain posterior values for our parameters $r ,\beta_0, \beta_1, \beta_{2j}$ and $\beta_{3j}$. We perform  model diagnostics to ensure our parameter values have convereged, which suggested that 200,000 simulated values were sufficient. We also fit models that used the covariate for `Birth.Date` instead of `Time`. Finally, we performed sensitivity analysis.
+We fit our initial model on the data to obtain posterior values for our parameters $r ,\beta_0, \beta_1, \beta_{2j}$ and $\beta_{3j}$. We perform  model diagnostics to ensure our parameter values have convereged, which suggested that 200,000 simulated values were sufficient. Finally, we performed sensitivity analysis.
 
 # Results 
+
+## Summary of Parameters
+
+```{r}
+load("leaders_model_r_1e-1_beta_100.Rdata")
+Bayesian_Leaders_V3b <- rjags_model
+bugs1 <- Bayesian_Leaders_V3b$BUGSoutput$summary %>% 
+  as.data.frame() 
+rows <- c("r", "beta_0", "beta_1", 
+          "beta_type[1]", "beta_type[2]", "beta_type[3]", "beta_type[4]", "beta_type[5]",
+          "beta_int[1]", "beta_int[2]", "beta_int[3]", "beta_int[4]", "beta_int[5]"
+)
+bugs1 <- bugs1[rows,]
+bugs1 <- bugs1 %>% 
+  tibble::rownames_to_column("Parameter") %>% 
+  mutate_if(is.numeric, round, digits = 3) %>% 
+  mutate("95% CI" = paste0("(", `2.5%`, ", ", `97.5%`,  ")")) %>% 
+  select(-(`2.5%`:`97.5%`)) %>% 
+  select(Parameter, mean, sd, `95% CI`) 
+bugs1$Parameter <- c("r", "(Intercept)", "Time", "Pope", "ChinaEmp", "DalaiLama", "JapanEmp", "UsPres",
+                     "Pope*Time", "ChinaEmp*Time", "DalaiLama*Time", "JapanEmp*Time", "UsPres*Time")
+
+bugs1 %>% 
+  mutate(mean = ifelse((mean == 0 & sd == 0), "(Reference)", mean),
+         sd = ifelse((mean == "(Reference)" & sd == 0),"", sd),
+         `95% CI` = ifelse((mean == "(Reference)" & sd == ""), "", `95% CI`)#,
+         #Rhat = ifelse((mean == "(Reference)" & sd == ""), "", Rhat)
+         ) %>% 
+  kableExtra::kbl(booktabs = T, caption = "$\\hat\\beta$s obtained with Model, with 95\\% Credible Intervals (CI)",
+                  col.names = c("Parameter", "Estimate", "Std. Deviation", "95% CI"#, "Rhat"
+                                )) %>% 
+  #kable_styling(font_size = 10) %>% 
+  
+  pack_rows("Type", 4,8) %>% 
+  pack_rows("Type*Time", 9,13)
+```
+
+Using JAGS, we run Model 1.1 with 150,000 simulations to determine the posterior density $\pi(r, \beta_0, \beta_1, \beta_{2j}, \beta_{3j}\, | \,data)$, with results summarized in Table 1. The 95% credible interval is created using the 2.5%  and 97.5% quantiles.
+
+## Model Diagnostics 
+
+We perform several model diagnostics to assess model integrity. Traceplots and $\hat{R}$[1] (maybe add source for GElman and Rubin) suggest that the chains for each parameter have converged and mix well, and autocorrelation plots indicate a low correlation between the simulations. (maybe include plots, maybe not)
+
+## Residual Plots 
+
+## Posterior Distributions  of  median or something
 
 # Discussion 
 
