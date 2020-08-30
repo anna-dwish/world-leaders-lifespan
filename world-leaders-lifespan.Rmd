@@ -183,7 +183,7 @@ censoring_limits <- ifelse(censored == 0, 110, Age.Event)
 #
 # Covariates (centered)
 #
-x_1 <- filtered_leaders$time - mean(filtered_leaders$time) # looking at "time" by the decade 
+x_1 <- filtered_leaders$time - mean(leaders$time) # looking at "time" by the decade
 # pope is baseline for type 
 x_2 <- filtered_leaders$Type %>% as.factor() %>% relevel("Pope")
 ```
@@ -347,6 +347,57 @@ priors <- "
   r ~ dgamma(25,0.2) # Prior on 
   "
 Bayesian_Leaders_output <- generate_model(priors,"leaders_model_r_25_2e-1_beta_1.Rdata")
+```
+
+
+```{r}
+#extracting posterior predictions for each individual
+modelOutput <- Bayesian_Leaders_output$BUGSoutput$summary %>% as.data.frame()
+survivalPredicted <- modelOutput[211:383, ] %>% select("mean", "sd", "2.5%", "50%", "97.5%")
+
+#creating dataframe with useful information (including prediction residuals and standardized residuals)
+leader <- filtered_leaders$Name
+censored_value <- as.factor(filtered_leaders$Censored)
+actual_survival <- filtered_leaders$Age.Event
+time <- filtered_leaders$time
+survivalPredicted <- survivalPredicted %>%
+  mutate(actual = actual_survival) %>%
+  mutate(name = leader) %>%
+  mutate(Censored = censored_value) %>%
+  mutate(Standardized_Residual = (mean - actual)/sd) %>%
+  mutate(Residual = mean - actual) %>%
+  mutate(time_of_birth = time)
+```
+
+
+```{r}
+#qqplot of residuals
+qqnorm(survivalPredicted$Residual)
+```
+
+
+
+```{r}
+#standardized residual plot
+shapes = c(16, 4) 
+shapes <- shapes[as.numeric(survivalPredicted$Censored)]
+plot(y = survivalPredicted$Standardized_Residual, x = survivalPredicted$time_of_birth, col= survivalPredicted$Censored, pch = shapes, main = "Standardized Residuals versus Time", xlab = "Time", ylab = "Standardized Residuals")
+abline(h =0)
+legend("topleft", legend = c("Censored", "Non-Censored"),
+      col =  c("black", "red"),
+      pch = c(16, 4), cex = 0.75)
+```
+
+
+```{r}
+shapes = c(16, 4) 
+shapes <- shapes[as.numeric(survivalPredicted$Censored)]
+plot(survivalPredicted$Standardized_Residual, col= x_2, pch = shapes,  main = "Standardized Residuals versus Index", xlab = "Index", ylab = "Standardized Residuals")
+abline(h =0)
+legend("topleft", legend = c("Popes", "Chinese Emperor", "Dalai Lama", "Japanese Emperor", "US President", "Censored"),
+      col =  c("black", "cyan", "red", "green", "blue", "grey5"),
+      pch = c(16, 16, 16, 16, 16, 4), cex = 0.7)
+
 ```
 
 ## Display Clean Model Output From RJAGS
@@ -841,34 +892,6 @@ scale_and_percent
 
 ```
 
-```{r}
-#extracting posterior predictions for each individual
-modelOutput <- Bayesian_Leaders_V7a$BUGSoutput$summary %>% as.data.frame()
-survivalPredicted <- modelOutput[38:210, ] %>% select("mean", "sd", "2.5%", "50%", "97.5%")
 
-#creating dataframe with useful information (including prediction residuals and standardized residuals)
-leader <- filtered_leaders$Name
-censored_value <- as.factor(filtered_leaders$Censored)
-actual_survival <- filtered_leaders$Age.Event
-time <- filtered_leaders$time
-survivalPredicted <- survivalPredicted %>%
-  mutate(actual = actual_survival) %>%
-  mutate(name = leader) %>%
-  mutate(Censored = censored_value) %>%
-  mutate(Standardized_Residual = (mean - actual)/sd) %>%
-  mutate(Residual = mean - actual) %>%
-  mutate(time_of_birth = time) 
 
-#qqplot of residuals
-qqnorm(survivalPredicted$Residual)
-
-#standardized residual plot
-shapes = c(16, 17) 
-shapes <- shapes[as.numeric(survivalPredicted$Censored)]
-plot(survivalPredicted$Standardized_Residual, col= survivalPredicted$Censored, pch = shapes)
-legend("topright", legend = c("Censored", "Non-Censored"),
-       col =  c("black", "red"),
-       pch = c(16, 17) )
-
-``` 
 
