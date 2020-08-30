@@ -14,12 +14,49 @@ output:
 knitr::opts_chunk$set(echo = FALSE,
                       message = FALSE,
                       warning = FALSE)
+options(knitr.table.format = "latex")
 
 ```
 
 ```{r out.width="50%"}
 library(tidyverse)
 library(kableExtra)
+library(stringr)
+
+load("Leaders.Rdata")
+leaders <- as.data.frame(leaders)
+head(leaders)
+prev_date <- as.Date("31/07/2020",format="%d/%m/%Y")
+current_date <- as.Date("31/08/2020",format="%d/%m/%Y")
+
+## remove days string and convert to numeric
+leaders <- leaders %>% 
+  mutate(Age.Event = sub(".*?(\\d+\\.*\\d*).*", "\\1", Age.Event)) %>% data.frame
+leaders$Age.Event <- as.numeric(leaders$Age.Event)
+
+## update age event by adding 1/12 to leaders still alive (none died in past month so easy to do case when)
+leaders <- leaders %>% 
+  mutate(Age.Event = case_when(Event.Date == prev_date ~ Age.Event + 1/12,
+                               TRUE ~ Age.Event)) %>% data.frame
+
+## update event dates to be current day since none of the leaders in this set died in the past month
+leaders <- leaders %>% 
+  mutate(Event.Date = case_when(Event.Date == prev_date ~ as.Date(current_date,format="%d/%m/%Y"),
+                                TRUE ~ Event.Date)) %>% data.frame
+
+## update Emperor Jianwen
+leaders <- leaders %>% 
+  mutate(Fail = case_when(Name == "Jianwen Emperor" ~ 1,
+                          TRUE ~ Fail),
+         Censored = case_when(Name == "Jianwen Emperor" ~ 0,
+                              TRUE ~ Censored)) %>% data.frame
+
+## multiplying time by 10 
+leaders <- leaders %>% 
+  mutate(decade = time * 10)
+alive = c("Barack Obama","Francis","14th Dalai Lama (Tenzin Gyatso)", "Naruhito (Emperor Reiwa)")
+filtered_leaders = leaders %>% 
+  filter(!Name %in% alive)
 # load("leaders_model_r_1e-1_beta_100.Rdata")
 # Bayesian_Leaders_V3b <- rjags_model
 # bugs1 <- Bayesian_Leaders_V3b$BUGSoutput$summary %>% 
@@ -33,7 +70,7 @@ library(kableExtra)
 #   tibble::rownames_to_column("Parameter") %>% 
 #   mutate_if(is.numeric, round, digits = 3) %>% 
 #   mutate("95% CI" = paste0("(", `2.5%`, ", ", `97.5%`,  ")")) %>% 
-#   select(-(`2.5%`:`97.5%`)) %>% 
+#   select(-(`2.5%`:`97.5%`)) %>%  
 #   select(Parameter, mean, sd, `95% CI`, Rhat) 
 # bugs1$Parameter <- c("r", "(Intercept)", "Time", "Pope", "ChinaEmp", "DalaiLama", "JapanEmp", "UsPres",
 #                      "Pope*Time", "ChinaEmp*Time", "DalaiLama*Time", "JapanEmp*Time", "UsPres*Time")
@@ -61,20 +98,64 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit. Cras sit amet mauris in
 
 # Data 
 
+## Distributions of Lifespan Across Leadership Type
+
+```{r  eval=FALSE}
+boxplot(Age.Event ~ Type, data = leaders, main="Lifespans vs Type of Leader", ylab="Lifespan (yrs)", xlab="Leader Type")
+```
+
+## Interaction Plot
+
+```{r  eval=FALSE}
+qplot(x = time, y = Age.Event, data = leaders, color = Type) +
+  geom_smooth(method = "lm", se=FALSE) + ylab("Lifespan (yrs)") + xlab("Relative Birth Date")
+```
+
+## Lexis Diagrams of Lifespans Across Leadership Type
+
+```{r eval=FALSE}
+leaderTypeTitles <- c("Popes", "US Presidents", "Chinese Emperors", "Dalai Lamas","Japanese Emperors")
+names(leaderTypeTitles) <- c("Pope", "UsPres", "ChinaEmp","DalaiLama","JapanEmp")
+
+plotLifeSpan <- function(leaderType) {
+  leaders.lexis <- leaders %>% filter(Type == leaderType) %>% data.frame
+  
+  # Used code from http://search.r-project.org/library/Epi/html/plot.Lexis.html to generate lexis plot
+  leaders.lexis$bt <- as.integer(substring(leaders.lexis$Birth.Date,0,4))
+  leaders.lexis$ex <- as.integer(substring(leaders.lexis$Event.Date,0,4))
+  
+  # Define as Lexis object with timescales calendar time and age
+  lifespans <- Lexis( entry = list( per=bt ),
+                      exit = list( per=ex, age=Age.Event ),
+                      exit.status = Fail,
+                      data = leaders.lexis )
+  plotTitle = paste0("Lexis Diagram of Lifespans of ",leaderTypeTitles[leaderType])
+  plot(lifespans, grid=0:20*5, col='black', xaxs="i", yaxs="i",
+       xlim=c(min(leaders.lexis$bt),2030), ylim=c(0,100), lwd=3, las=1 , main=plotTitle,
+       ylab="Lifespan (yrs)", xlab="Century") 
+  points( lifespans, pch=c(NA,16)[lifespans$lex.Xst+1], col="red", cex=1.5 )
+}
+
+for (leaderType in unique(leaders$Type)) {
+  plotLifeSpan(leaderType)
+}
+```
+
 # Methodology
 
 ## Model Selection 
 
-We propose a Weibull distribution to model the life expectancy $T_i$ of the $i$th leader. The first parameter $r$ of the Weibull distribution is a positive scale parameter. We then take the log of $mu_i$ as a linear function of the covariates.
+We propose a Weibull distribution to model the life expectancy $T_i$ of the $i$th leader. The first parameter $r > 0$ of the Weibull distribution is a positive scale parameter, and is constant across all leaders. We then take the log of the second parameter, $mu_i > 0$, as a linear function of the covariates.
 
 Our proposed model is as follows: 
 
 $$
-\begin{align*}
+\begin{aligned}
 T_i \sim & \,Weibull(r, \mu_i)  \\
-log(\mu_i) = \beta_0 + \beta_1(time_i) + \sum_{j=2}^{5} \beta_{2j} & (I(Type_i = t_j)) +  \sum_{j=2}^{5}  \beta_{3j}(time_i * I(Type_i = t_j)), &(1.1)
-\end{align*}
+log(\mu_i) = \beta_0 + \beta_1(time_i) + \sum_{j=2}^{5} \beta_{2j} & (I(Type_i = t_j)) + \sum_{j=2}^{5}  \beta_{3j}(time_i * I(Type_i = t_j)), &(1.1)
+\end{aligned}
 $$
+
 
 where $i$ corresponds to each world leader, and for each leader $i$, $T_i$ refers to their life expectancy, $time_i$ is the number of hundreds of years since 1300 that each leader was born, $Type_i$ refers to their leadership type, with $t = (2, 3, 4, 5)$ where 2=Chinese Emperor, 3=Dalai Lama, 4=Japanese Emperor, and 5=US President. The reference level was set to be Pope, because it is the largest category ($n=63$).
 
@@ -102,33 +183,33 @@ We fit our initial model on the data to obtain posterior values for our paramete
 ## Summary of Parameters
 
 ```{r}
-load("leaders_model_r_1e-1_beta_100.Rdata")
-Bayesian_Leaders_V3b <- rjags_model
-bugs1 <- Bayesian_Leaders_V3b$BUGSoutput$summary %>% 
+load("leaders_model_r_25_2e-1_beta_1.Rdata")
+Bayesian_Leader_output <- rjags_model
+post_summary_df <- Bayesian_Leader_output$BUGSoutput$summary %>% 
   as.data.frame() 
 rows <- c("r", "beta_0", "beta_1", 
           "beta_type[1]", "beta_type[2]", "beta_type[3]", "beta_type[4]", "beta_type[5]",
           "beta_int[1]", "beta_int[2]", "beta_int[3]", "beta_int[4]", "beta_int[5]"
 )
-bugs1 <- bugs1[rows,]
-bugs1 <- bugs1 %>% 
+post_summary_df <- post_summary_df[rows,]
+post_summary_df <- post_summary_df %>% 
   tibble::rownames_to_column("Parameter") %>% 
   mutate_if(is.numeric, round, digits = 3) %>% 
   mutate("95% CI" = paste0("(", `2.5%`, ", ", `97.5%`,  ")")) %>% 
   select(-(`2.5%`:`97.5%`)) %>% 
   select(Parameter, mean, sd, `95% CI`) 
-bugs1$Parameter <- c("r", "(Intercept)", "Time", "Pope", "ChinaEmp", "DalaiLama", "JapanEmp", "UsPres",
-                     "Pope*Time", "ChinaEmp*Time", "DalaiLama*Time", "JapanEmp*Time", "UsPres*Time")
+post_summary_df$Parameter <- c("r", "(Intercept)", "Time", "Pope", "ChinaEmp", "DalaiLama", "JapanEmp", "UsPres",
+                               "Pope*Time", "ChinaEmp*Time", "DalaiLama*Time", "JapanEmp*Time", "UsPres*Time")
 
-bugs1 %>% 
+post_summary_df %>% 
   mutate(mean = ifelse((mean == 0 & sd == 0), "(Reference)", mean),
          sd = ifelse((mean == "(Reference)" & sd == 0),"", sd),
          `95% CI` = ifelse((mean == "(Reference)" & sd == ""), "", `95% CI`)#,
          #Rhat = ifelse((mean == "(Reference)" & sd == ""), "", Rhat)
-         ) %>% 
-  kableExtra::kbl(booktabs = T, caption = "$\\hat\\beta$s obtained with Model, with 95\\% Credible Intervals (CI)",
-                  col.names = c("Parameter", "Estimate", "Std. Deviation", "95% CI"#, "Rhat"
-                                )) %>% 
+  ) %>% 
+  kableExtra::kbl(booktabs = T, caption = "Parameters obtained with Model 1.1, with 95\\% Credible Intervals (CI)",
+                  col.names = c("Parameter", "Mean", "Std. Dev.", "95% CI"#, "Rhat"
+                  )) %>% 
   #kable_styling(font_size = 10) %>% 
   
   pack_rows("Type", 4,8) %>% 
@@ -144,6 +225,80 @@ We perform several model diagnostics to assess model integrity. Traceplots and $
 ## Residual Plots 
 
 ## Posterior Distributions  of  median or something
+
+```{r}
+# tidybayes::gather_draws(Bayesian_Leaders_V7a %>% as.mcmc(), survival_Francis,
+#                         survival_Obama,
+#                         survival_Naruhito,
+#                         survival_DL) %>% 
+#   ungroup() 
+
+# Bayesian_Leader_output$BUGSoutput$summary[c("survival_Francis",
+#                                             "survival_Obama",
+#                                             "survival_Naruhito",
+#                                             "survival_DL"), ] %>% 
+#   as.data.frame() %>% 
+#   tibble::rownames_to_column() %>% 
+#   mutate(rowname = str_remove_all(rowname, "survival_"),
+#          rowname = case_when(
+#            rowname == "Francis" ~ "Pope Francis",
+#            rowname == "Obama" ~ "President Obama",
+#            rowname == "Naruhito" ~ "Emperor Naruhito",  
+#            rowname == "DL" ~ "14th Dalai Lama"
+#          )) %>% 
+#   mutate_if(is.numeric, round, digits=3) %>% 
+#   mutate("95% CI" = paste0("(", `2.5%`,", ", `97.5%`, ")")) %>% 
+#   select(rowname, mean, `50%`, sd, "95% CI") %>% 
+#   kableExtra::kbl(booktabs = T, caption = "$\\hat\\beta$s obtained with Model, with 95\\% Credible Intervals (CI)",
+#                   col.names = c("Leader", "Mean", "Median", "Std. Deviation", "95% CI"
+#                   )) 
+
+alive_leaders = leaders %>% 
+  filter(Name %in% alive) %>% 
+  bind_rows(filtered_leaders %>% 
+              mutate(rownum = row_number()) %>% 
+              filter(Censored == 1))
+
+al_index = alive_leaders %>% 
+  filter(!is.na(rownum)) %>% 
+  pull(rownum) %>% 
+  paste0("y_pred_censored[", ., "]") %>% 
+  as.vector()
+
+al_names = alive_leaders %>% pull(Name) %>% str_remove_all("\\s*\\([^\\)]+\\)")
+al_cur_age = alive_leaders %>% pull(Age.Event)
+al_type = alive_leaders %>% pull(Type)
+Bayesian_Leader_output$BUGSoutput$summary[c("survival_Francis",
+                                            "survival_Obama",
+                                            "survival_DL",
+                                            "survival_Naruhito",
+                                            al_index), ] %>%
+  as.data.frame() %>% 
+  tibble::rownames_to_column() %>% 
+  mutate(rowname = al_names,
+         cur_age = al_cur_age,
+         type = al_type
+         # ,
+         # type = case_when(
+         #   type == "DalaiLama" ~ "Dalai Lama", 
+         #   type == "JapanEmp" ~ "Japanese Emperor", 
+         #   type == "UsPres" ~  "US President", 
+         #   TRUE ~ as.character(type))
+  ) %>% 
+  mutate_if(is.numeric, round, digits=3) %>% 
+  mutate("95% CI" = paste0("(", `2.5%`,", ", `97.5%`, ")")) %>% 
+  select(rowname, type,  cur_age, mean, `50%`, sd, "95% CI") %>% 
+  kableExtra::kbl(booktabs = TRUE, caption = "Posterior Predictions for Lifespans of Living Leaders", 
+                  col.names = c("Leader", "Type", "Current Age", "Mean", "Median", "Std. Dev.", "95% CI")) %>% 
+  kable_styling(position = "center") %>% 
+  row_spec(0, bold = TRUE) %>% 
+  column_spec()
+  #kable_styling(position = "center", latex_options = c("hold_position")) %>% 
+  # add_header_above(c(" " = 3, "Posterior Values" = 4)) %>% 
+  row_spec(0:10, align = "c")
+
+```
+
 
 # Discussion 
 
