@@ -144,7 +144,7 @@ $$
 f_{T_i}(t_i|r, \mu_i) = r\ \mu_i\ t_i^{r-1}\ exp(-\mu_i\ {t_i}^r),\ \ \ \ \ r,\  \mu_i, \ t_i >0
 $$
 
-The first parameter $r > 0$ of the Weibull distribution is a positive scale parameter, and is constant across all leaders. We then take the log of the second parameter, $mu_i > 0$, as a linear function of the $time$ and $type$ covariates. For ease of interpretability, the $time$ covariate was mean-centered.
+The first parameter $r > 0$ of the Weibull distribution is a positive scale parameter, and is constant across all leaders. We then take the log of the second parameter, $\mu_i > 0$, as a linear function of the $time$ and $type$ covariates. For ease of interpretability, the $time$ covariate was mean-centered.
 
 Our proposed model is as follows: 
 
@@ -193,7 +193,7 @@ We fit our initial model on the data to obtain posterior values for our paramete
 
 # Results 
 
-## Summary of Parameters
+## Summary of Parameters (AND interpretations)
 
 ```{r}
 load("leaders_model_r_25_2e-1_beta_1.Rdata")
@@ -231,13 +231,65 @@ post_summary_df %>%
 
 Using JAGS, we run Model 1.1 with 150,000 simulations to determine the posterior density $\pi(r, \beta_0, \beta_1, \beta_{2j}, \beta_{3j}\, | \,data)$, with results summarized in Table 1. The 95% credible interval is created using the 2.5%  and 97.5% quantiles.
 
+
+ADD TABLE OF INTERPRETATIONS 
+
 ## Model Diagnostics 
 
 We perform several model diagnostics to assess model integrity. Traceplots and $\hat{R}$[1] (maybe add source for GElman and Rubin) suggest that the chains for each parameter have converged and mix well, and autocorrelation plots indicate a low correlation between the simulations. (maybe include plots, maybe not)
 
-## Residual Plots 
+### Convergence & Autocorrelation Plots 
 
-## Posterior Distributions  of  median or something
+### Sensitivity Analysis 
+
+```{r}
+r_vals <- c("1e-3", "1", "10_5e-1")
+b_vals <- c("1", "100")
+r_vals[3]
+
+str_split(r_vals[3], "_")[[1]][2]
+sensitivity_df = function(param) {
+  df = data.frame()
+  for (r in r_vals) {
+    for (b in b_vals) {
+      file_name = paste0("leaders_model_r_",r,"_beta_",b,".Rdata")
+      load(file_name)
+      
+      param_df = rjags_model$BUGSoutput$sims.matrix %>% 
+        as.data.frame() %>%
+        select(param) %>% 
+        mutate(r = case_when(
+          r == "1e-3" ~ "0.001",
+          r == "10_5e-1" ~ "10_0.5",
+          r == "25_2e-1" ~ "25_0.2",
+          TRUE ~ as.character(r)),
+          priors = ifelse(str_detect(r, "_"),
+                          paste0("r ~ Ga(", str_split(r, "_")[[1]][1], ", ", str_split(r, "_")[[1]][2], "), beta ~ N(0, ", b, ")"),
+                          
+                          paste0("r ~ exp(", r, "), beta ~ N(0, ", b, ")")
+          ))
+      df = df %>% bind_rows(param_df)
+    }
+  }
+  
+  return(df) 
+}
+
+sensitivity_df("beta_1")  %>% 
+  ggplot() + 
+  geom_density(aes(x = beta_1)) + 
+  labs(title = expression(paste("Sensitivity Analysis for Different Priors on r and ", beta))) + 
+  facet_wrap(priors~.,  scales = "free", nrow = 2) 
+
+``` 
+
+### Residual Plots 
+
+### Histograms and stuff 
+
+# Discussion 
+
+## Posterior Predictive Distribution 
 
 ```{r}
 # tidybayes::gather_draws(Bayesian_Leaders_V7a %>% as.mcmc(), survival_Francis,
@@ -311,52 +363,11 @@ Bayesian_Leader_output$BUGSoutput$summary[c("survival_Francis",
 
 ```
 
-```{r}
-r_vals <- c("1e-3", "1", "10_5e-1")
-b_vals <- c("1", "100")
-r_vals[3]
-
-str_split(r_vals[3], "_")[[1]][2]
-sensitivity_df = function(param) {
-  df = data.frame()
-  for (r in r_vals) {
-    for (b in b_vals) {
-      file_name = paste0("leaders_model_r_",r,"_beta_",b,".Rdata")
-      load(file_name)
-      
-      param_df = rjags_model$BUGSoutput$sims.matrix %>% 
-        as.data.frame() %>%
-        select(param) %>% 
-        mutate(r = case_when(
-          r == "1e-3" ~ "0.001",
-          r == "10_5e-1" ~ "10_0.5",
-          r == "25_2e-1" ~ "25_0.2",
-          TRUE ~ as.character(r)),
-          priors = ifelse(str_detect(r, "_"),
-                          paste0("r ~ Ga(", str_split(r, "_")[[1]][1], ", ", str_split(r, "_")[[1]][2], "), beta ~ N(0, ", b, ")"),
-                          
-                          paste0("r ~ exp(", r, "), beta ~ N(0, ", b, ")")
-          ))
-      df = df %>% bind_rows(param_df)
-    }
-  }
-  
-  return(df) 
-}
-
-sensitivity_df("beta_1")  %>% 
-  ggplot() + 
-  geom_density(aes(x = beta_1)) + 
-  labs(title = expression(paste("Sensitivity Analysis for Different Priors on r and ", beta))) + 
-  facet_wrap(priors~.,  scales = "free", nrow = 2) 
-
-``` 
-
-# Discussion 
-
-## Posterior Predictive Distribution 
+## Answering Questions 
 
 # Conclusion & Limitations 
+
+start off by summarizing answers to all the questions 
 
 #########################
 where $\beta_0$ corresponds with the intercept, $\beta_1$ is the coefficient corresponding to `Time`, $\beta_{type} = (0, \beta_2, \beta_3, \beta_4, \beta_5)$ is the vector of coefficients corresponding to leadership types of Popes, Chinese Emperors, Dalai Lamas, Japanese Emperors, and US Presidents respectively, and $\beta_{type*time} = (0, \beta_6, \beta_7, \beta_8, \beta_9)$ is the vector of coefficient corresponding  to the interaction between `Time` and leadership type.
