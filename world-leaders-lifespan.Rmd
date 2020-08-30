@@ -30,6 +30,7 @@ pkgTest("R2jags")
 pkgTest("tidyr")
 pkgTest("kableExtra")
 pkgTest("tibble")
+pkgTest("tidybayes")
 ```
 
 ```{r setup, include=FALSE}
@@ -44,6 +45,7 @@ library(R2jags)
 library(tidyr)
 library(kableExtra)
 library(tibble)
+library(tidybayes)
 ```
 
 ```{r}
@@ -162,15 +164,16 @@ for (leaderType in unique(leaders$Type)) {
 
 ```{r}
 alive = c("Barack Obama","Francis","14th Dalai Lama (Tenzin Gyatso)", "Naruhito (Emperor Reiwa)")
-l = leaders[-(leaders$Name %in% alive),]
+filtered_leaders = leaders %>% 
+  filter(!Name %in% alive)
 
-n <- nrow(l)
+n <- nrow(filtered_leaders)
 #
 #
 # Censoring
-Age.Event <- l$Age.Event
+Age.Event <- filtered_leaders$Age.Event
 #
-censored <- l$Censored
+censored <- filtered_leaders$Censored
 #
 survival <- ifelse(censored == 0, Age.Event, NA)
 #
@@ -178,9 +181,9 @@ censoring_limits <- ifelse(censored == 0, 100, Age.Event)
 #
 # Covariates (centered)
 #
-x_1 <- l$time - mean(l$time) # looking at "time" by the decade 
+x_1 <- filtered_leaders$time - mean(filtered_leaders$time) # looking at "time" by the decade 
 # pope is baseline for type 
-x_2 <- l$Type %>% as.factor() %>% relevel("Pope")
+x_2 <- filtered_leaders$Type %>% as.factor() %>% relevel("Pope")
 ```
 
 ```{r}
@@ -206,6 +209,8 @@ type_Naruhito <- 4
 present_length_Naruhito <- 60.518652
 
 upper_length <- 100
+
+#present_length <- filtered_leaders$Age.Event
 ```
 
 ```{r}
@@ -217,6 +222,7 @@ data_leaders <- list("n",
                      "x_2", 
                      "time_Francis",
                      "present_length_Francis",
+                    # "present_length",
                      "upper_length",
                      "time_Obama",
                      "type_Obama",
@@ -238,10 +244,11 @@ generate_model_text = function(priors=""){
   for (i in 1:n){ 
 
     censored[i] ~ dinterval(survival[i], censoring_limits[i]) 
+    
     survival[i] ~ dweib(r, mu[i]) # Basic Weibull assumption
     mu[i] <- exp(beta[i])  # Defining beta as log(mu)
     beta[i] <- beta_0 + beta_1*x_1[i] + beta_type[x_2[i]] + beta_int[x_2[i]] * x_1[i] 
-
+    y_pred[i] ~  dweib(r, mu[i]) #T(present_length[i], upper_length)
   }
     
   #Priors
@@ -280,9 +287,9 @@ generate_model_text = function(priors=""){
   survival_DL ~ dweib(r, mu_DL)T(present_length_DL, upper_length)
   "
   
-model_text <- paste("model{ ",likelihood, priors, predicted_survivals, "}")
-writeLines(model_text,con=model_file)
-return(model_file)
+  model_text <- paste("model{ ",likelihood, priors, predicted_survivals, "}")
+  writeLines(model_text,con=model_file)
+  return(model_file)
 }
 ```
 
@@ -295,29 +302,31 @@ generate_model = function(priors="",model_name=""){
     load(file = model_name)
   } 
   else {
-  
-  rjags_model <- jags(data = data_leaders,  
-                              parameters.to.save = c("beta_0",
-                                                     "beta_1",
-                                                     "beta_type",
-                                                     "beta_int",
-                                                     "r",
-                                                     "survival_Francis",
-                                                     "survival_Obama",
-                                                     "survival_Naruhito",
-                                                     "survival_DL",
-                                                     "alpha_0",
-                                                     "alpha_1",
-                                                     "percentage_increase_birthyr",
-                                                     "alpha_type",
-                                                     "alpha_int",
-                                                     "percentage_increase_type",
-                                                     "percentage_increase_int"
-                              ), 
-                              n.iter = 100000, 
-                              n.chains = 3,
-                              model.file = model_file)
-  save(rjags_model, file = model_name)
+    
+    rjags_model <- jags(data = data_leaders,  
+                        parameters.to.save = c("beta_0",
+                                               "beta_1",
+                                               "beta_type",
+                                               "beta_int",
+                                               "r",
+                                                "y_pred",
+                                               "survival_Francis",
+                                               "survival_Obama",
+                                               "survival_Naruhito",
+                                               "survival_DL",
+                                               "alpha_0",
+                                               "alpha_1",
+                                               "percentage_increase_birthyr",
+                                               "alpha_type",
+                                               "alpha_int",
+                                               "percentage_increase_type",
+                                               "percentage_increase_int",
+                                               "survival"
+                        ), 
+                        n.iter = 1500, 
+                        n.chains = 3,
+                        model.file = model_file)
+    save(rjags_model, file = model_name)
   }
   return(rjags_model)
 }
@@ -379,36 +388,36 @@ Bayesian_Leaders_V1b
 
 ```{r}
 ## WORK IN PROGRESS - table doesn't knit in a pdf 
-bugs1 <- Bayesian_Leaders_V1$BUGSoutput$summary %>% 
-  as.data.frame() 
-bugs1 <- bugs1[c(14, 1:2, 8:12, 3:7),]
-
-bugs1 <- bugs1 %>% 
-  tibble::rownames_to_column("Parameter") %>% 
-  mutate_if(is.numeric, round, digits = 3) %>% 
-  mutate("95% CI" = paste0("(", `2.5%`, ", ", `97.5%`,  ")")) %>% 
-  select(-(`2.5%`:`97.5%`)) %>% 
-  select(Parameter, mean, sd, `95% CI`, Rhat) %>% 
-  tibble::column_to_rownames("Parameter")
-
-row.names(bugs1) <- c("$r$", "$\\beta_0$", "$\\beta_1$", 
-                      "$\\beta_{21}$","$\\beta_{22}$","$\\beta_{23}$","$\\beta_{24}$","$\\beta_{25}$",
-                      "$\\beta_{31}$","$\\beta_{32}$","$\\beta_{33}$","$\\beta_{34}$","$\\beta_{35}$")
-
-# filters out dummy parameters (beta_21, beta_31)
-bugs1 %>% 
-  filter(sd != 0) %>% 
-  knitr::kable(booktabs=T, 
-               col.names = c("Estimate", "Std. Deviation", "95% CI", "$\\hat{R}$"),
-               row.names = T) 
+# bugs1 <- Bayesian_Leaders_V1$BUGSoutput$summary %>% 
+#   as.data.frame() 
+# bugs1 <- bugs1[c(14, 1:2, 8:12, 3:7),]
+# 
+# bugs1 <- bugs1 %>% 
+#   tibble::rownames_to_column("Parameter") %>% 
+#   mutate_if(is.numeric, round, digits = 3) %>% 
+#   mutate("95% CI" = paste0("(", `2.5%`, ", ", `97.5%`,  ")")) %>% 
+#   select(-(`2.5%`:`97.5%`)) %>% 
+#   select(Parameter, mean, sd, `95% CI`, Rhat) %>% 
+#   tibble::column_to_rownames("Parameter")
+# 
+# row.names(bugs1) <- c("$r$", "$\\beta_0$", "$\\beta_1$", 
+#                       "$\\beta_{21}$","$\\beta_{22}$","$\\beta_{23}$","$\\beta_{24}$","$\\beta_{25}$",
+#                       "$\\beta_{31}$","$\\beta_{32}$","$\\beta_{33}$","$\\beta_{34}$","$\\beta_{35}$")
+# 
+# # filters out dummy parameters (beta_21, beta_31)
+# bugs1 %>% 
+#   filter(sd != 0) %>% 
+#   knitr::kable(booktabs=T, 
+#                col.names = c("Estimate", "Std. Deviation", "95% CI", "$\\hat{R}$"),
+#                row.names = T) 
 ```
 
 
 ## Posterior Predictive Distribution (Francis' Lifespan)
 
 ```{r}
-ggplot(post_values_V1) +
-  geom_histogram(aes(x = survival_Francis)) # this kinda makes sense?? I guess we wnat things to look "approx normal"
+# ggplot(post_values_V1) +
+#   geom_histogram(aes(x = survival_Francis)) # this kinda makes sense?? I guess we wnat things to look "approx normal"
 ```
 
 
@@ -464,7 +473,6 @@ priors <- "
   r ~ dexp(1) # Prior on r
   "
 Bayesian_Leaders_V4a <- generate_model(priors,"leaders_model_r_1_beta_1.Rdata")
-Bayesian_Leaders_V4a
 ```
 
 ## Model 4b - rexp(1), Betas: N(0,100)
@@ -482,7 +490,16 @@ priors <- "
   r ~ dexp(1) # Prior on r
   "
 Bayesian_Leaders_V4b <- generate_model(priors,"leaders_model_r_1_beta_100.Rdata")
-Bayesian_Leaders_V4b
+Bayesian_Leaders_V4b %>% typeof()
+
+
+tidybayes::gather_draws(Bayesian_Leaders_V4b %>% as.mcmc(), mu[i], r) 
+ggplot(aes(x = .value)) + 
+  geom_histogram()
+
+
+rweibull(n = 100,shape = 4, scale = 1.633428e-08) %>% hist()
+hist(l$Age.Event)
 ```
 
 
@@ -501,7 +518,19 @@ priors <- "
   r ~ dexp(2) # Prior on r
   "
 Bayesian_Leaders_V5a <- generate_model(priors,"leaders_model_r_2_beta_1.Rdata")
-Bayesian_Leaders_V5a
+
+Bayesian_Leaders_V5a$BUGSoutput$summary
+tidybayes::gather_draws(Bayesian_Leaders_V5a %>% as.mcmc(), r, mu[i]) %>% 
+  ungroup() %>% 
+  group_by(.variable) %>% 
+  filter(i ==3 | is.na(i)) %>% 
+  summarize(mean = mean(.value))#%>% 
+
+
+
+rweibull(1, scale = 2.249767e+00, shape = 6.474022e-05) 
+
+ggplot(data = filtered_leaders, aes(x = Age.Event)) + geom_histogram()
 ```
 
 ## Model 5b - rexp(2), Betas: N(0,100)
@@ -574,7 +603,67 @@ priors <- "
   "
 Bayesian_Leaders_V7a <- generate_model(priors,"leaders_model_r_25_2e-1_beta_1.Rdata")
 Bayesian_Leaders_V7a
+
+tidybayes::gather_draws(Bayesian_Leaders_V7a %>% as.mcmc(), y_pred[i]) %>% 
+  ungroup() %>%
+  filter(i == 1) %>% 
+  ggplot() + geom_histogram(aes(x = .value)) + 
+  geom_vline(xintercept = filtered_leaders %>% filter(Name == "Benedict XVI" | Name == "Leo XIII") %>% pull(Age.Event))
+
+
+bayesplot::ppc_stat(filtered_leaders %>% filter(Name == "John Paul II") %>% pull(Age.Event),
+                   tidybayes::gather_draws(Bayesian_Leaders_V7a %>% as.mcmc(), y_pred[i]) %>% filter(i==2) %>% pull(.value) %>% as.matrix() )
 ```
+
+```{r}
+p1=tidybayes::gather_draws(Bayesian_Leaders_V7a %>% as.mcmc(), r, beta_0, beta_1) %>%  
+  # tidyr::gather(key, value, "beta_0", "beta_1", "r", -i) %>% 
+  ggplot() + 
+  geom_line(aes(x = .iteration, y = .value, color = .variable)) + 
+  facet_grid(.variable~., scales = "free_y")
+
+p2=tidybayes::gather_draws(Bayesian_Leaders_V7a %>% as.mcmc(), beta_type[i]) %>% 
+  filter(i != 1) %>% 
+  mutate(.variable = ifelse(is.na(i), .variable, paste0(.variable, "[",i, "]"))) %>% 
+  #tidyr::gather(key, value, `beta_type[2]`:`beta_type[5]`, -i) %>% 
+  ggplot() + 
+  geom_line(aes(x = .iteration, y = .value, color = .variable)) + 
+  facet_grid(.variable~., scales = "free_y")
+
+p3=tidybayes::gather_draws(Bayesian_Leaders_V7a %>% as.mcmc(), beta_int[i]) %>% 
+  filter(i != 1) %>% 
+  mutate(.variable = ifelse(is.na(i), .variable, paste0(.variable, "[",i, "]"))) %>% 
+  #tidyr::gather(key, value, `beta_type[2]`:`beta_type[5]`, -i) %>% 
+  ggplot() + 
+  geom_line(aes(x = .iteration, y = .value, color = .variable)) + 
+  facet_grid(.variable~., scales = "free_y") + 
+  labs(title = "Traceplots for Interaction Effect",
+       x = "Iteration", y = "Value", color = "Parameter")
+# post_values %>% 
+#   tidyr::gather(key, value, `beta_int[2]`:`beta_int[5]`, -i) %>% 
+#   ggplot() + 
+#   geom_line(aes(x = i, y = value, color = key)) + 
+#   facet_grid(key~., scales = "free_y")
+
+
+cowplot::plot_grid(p1,p2,p3)
+```
+
+## ACF
+```{r}
+plot_acf <- function(parameter) {
+  Bayesian_Leaders_V7a$BUGSoutput$sims.matrix %>% 
+    as_tibble() %>% 
+    pull(parameter) %>% 
+    acf()
+}
+for (param in c("r","beta_0", "beta_1", 
+                "beta_type[2]", "beta_type[3]", "beta_type[4]", "beta_type[5]", 
+                "beta_int[2]", "beta_int[3]", "beta_int[4]", "beta_int[5]")) {
+  plot_acf(param)
+}
+```
+
 
 ## Model 7b - r=gamma(25,0.2), Betas: N(0,100)
 
@@ -591,7 +680,15 @@ priors <- "
   r ~ dgamma(25,0.2) # Prior on r
   "
 Bayesian_Leaders_V7b <- generate_model(priors,"leaders_model_r_25_2e-1_beta_100.Rdata")
-Bayesian_Leaders_V7b
+tidybayes::gather_draws(Bayesian_Leaders_V7b %>% as.mcmc(), y_pred[i]) %>% 
+  ungroup() %>%
+  filter(i == 1) %>% 
+  ggplot() + geom_histogram(aes(x = .value)) + 
+  geom_vline(xintercept = filtered_leaders %>% filter(Name == "Benedict XVI" | Name == "Leo XIII") %>% pull(Age.Event))
+
+
+bayesplot::ppc_stat(filtered_leaders %>% filter(Name == "John Paul II") %>% pull(Age.Event),
+                   tidybayes::gather_draws(Bayesian_Leaders_V7b %>% as.mcmc(), y_pred[i]) %>% filter(i==2) %>% pull(.value) %>% as.matrix() )
 ```
 
 # Model Analysis
@@ -601,26 +698,26 @@ Bayesian_Leaders_V7b
 ```{r}
 model_trace_plots = function(model){
   post_values = model$BUGSoutput$sims.matrix %>% 
-  as.data.frame() %>% 
-  mutate(i = row_number())
-
-post_values %>% 
-  tidyr::gather(key, value, "beta_0", "beta_1", "r", -i) %>% 
-  ggplot() + 
-  geom_line(aes(x = i, y = value, color = key)) + 
-  facet_grid(key~., scales = "free_y")
-
-post_values %>% 
-  tidyr::gather(key, value, `beta_type[2]`:`beta_type[5]`, -i) %>% 
-  ggplot() + 
-  geom_line(aes(x = i, y = value, color = key)) + 
-  facet_grid(key~., scales = "free_y")
-
-post_values %>% 
-  tidyr::gather(key, value, `beta_int[2]`:`beta_int[5]`, -i) %>% 
-  ggplot() + 
-  geom_line(aes(x = i, y = value, color = key)) + 
-  facet_grid(key~., scales = "free_y")
+    as.data.frame() %>% 
+    mutate(i = row_number())
+  
+  post_values %>% 
+    tidyr::gather(key, value, "beta_0", "beta_1", "r", -i) %>% 
+    ggplot() + 
+    geom_line(aes(x = i, y = value, color = key)) + 
+    facet_grid(key~., scales = "free_y")
+  
+  post_values %>% 
+    tidyr::gather(key, value, `beta_type[2]`:`beta_type[5]`, -i) %>% 
+    ggplot() + 
+    geom_line(aes(x = i, y = value, color = key)) + 
+    facet_grid(key~., scales = "free_y")
+  
+  post_values %>% 
+    tidyr::gather(key, value, `beta_int[2]`:`beta_int[5]`, -i) %>% 
+    ggplot() + 
+    geom_line(aes(x = i, y = value, color = key)) + 
+    facet_grid(key~., scales = "free_y")
 }
 model_trace_plots(Bayesian_Leaders_V1a)
 model_trace_plots(Bayesian_Leaders_V1b)
@@ -718,5 +815,37 @@ leader_type <- c("Pope", "Chinese Emperor", "Dalai Lama", "Japanese Emperor", "U
 
 scale_and_percent <- data.frame(leader_type, scale_factors, percent_increase)
 scale_and_percent 
-  
+
 ```
+
+```{r}
+#extracting posterior predictions for each individual
+modelOutput <- Bayesian_Leaders_V7a$BUGSoutput$summary %>% as.data.frame()
+survivalPredicted <- modelOutput[38:210, ] %>% select("mean", "sd", "2.5%", "50%", "97.5%")
+ 
+#creating dataframe with useful information (including prediction residuals and standardized residuals)
+leader <- l$Name
+censored_value <- as.factor(l$Censored)
+actual_survival <- l$Age.Event
+time <- l$time
+survivalPredicted <- survivalPredicted %>%
+  mutate(actual = actual_survival) %>%
+  mutate(name = leader) %>%
+  mutate(Censored = censored_value) %>%
+  mutate(Standardized_Residual = (mean - actual)/sd) %>%
+  mutate(Residual = mean - actual) %>%
+  mutate(time_of_birth = time) 
+
+#qqplot of residuals
+qqnorm(survivalPredicted$Residual)
+
+#standardized residual plot
+shapes = c(16, 17) 
+shapes <- shapes[as.numeric(survivalPredicted$Censored)]
+plot(survivalPredicted$Standardized_Residual, col= survivalPredicted$Censored, pch = shapes)
+legend("topright", legend = c("Censored", "Non-Censored"),
+      col =  c("black", "red"),
+      pch = c(16, 17) )
+
+``` 
+
