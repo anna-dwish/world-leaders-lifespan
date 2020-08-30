@@ -290,16 +290,87 @@ Bayesian_Leader_output$BUGSoutput$summary[c("survival_Francis",
   select(rowname, type,  cur_age, mean, `50%`, sd, "95% CI") %>% 
   kableExtra::kbl(booktabs = TRUE, caption = "Posterior Predictions for Lifespans of Living Leaders", 
                   col.names = c("Leader", "Type", "Current Age", "Mean", "Median", "Std. Dev.", "95% CI")) %>% 
-  kable_styling(position = "center") %>% 
+  kable_styling(position = "center") %>%  
   row_spec(0, bold = TRUE) %>% 
-  column_spec()
+  column_spec(column = c(3:7), latex_column_spec = "c") %>% 
   #kable_styling(position = "center", latex_options = c("hold_position")) %>% 
-  # add_header_above(c(" " = 3, "Posterior Values" = 4)) %>% 
-  row_spec(0:10, align = "c")
+  add_header_above(c(" " = 3, "Posterior Values" = 4)) 
 
 ```
 
+```{r}
+r_vals <- c("1e-3", "1", "10_5e-1", "25_2e-1")
+b_vals <- c("1", "100")
+sensitivity_plot <- function(x){
+  par(mfrow = c(4, 2))
+  par(mar=c(1,1,1,1))
+  row = 0
+  plots = list()
+  for (r in r_vals){
+    col = 0
+    for (b in b_vals){
+      file_name = paste0("leaders_model_r_",r,"_beta_",b,".Rdata")
+      if (file.exists(file_name)) {
+        
+        load(file = file_name)
+        df <- as.data.frame(rjags_model$BUGSoutput$sims.matrix)
+        d <- density(df[,x]) # returns the density data
+        r_label = paste0("R Prior: ",r)
+        b_label = paste0("B Variance Prior: ", b)
+        if (col == 1 && row == 0){
+          plots <- append(plots,plot(d,main=b_label))
+        }
+        else if (col == 0 && row==0){
+          plots <- append(plots,plot(d,main=b_label,ylab=r_label))
+        }
+        else if (col == 0){
+          plots <- append(plots,plot(d,main="",ylab=r_label))
+        }
+        else {
+          plots <- append(plots,plot(d,main=""))
+        }
+        col = col + 1
+      }
+      else{
+        fail_load = paste0("Failed to load file: ", file_name)
+        print(fail_load)
+      }
+    }
+    row = row + 1
+  }
+  grid.arrange(plots,nrow=4,ncol=2)
+}
+sensitivity_plot("survival_Francis")
+sensitivity_plot("r")
+sensitivity_plot("beta_1")
+```
 
+```{r}
+r_vals <- c("1e-3", "1", "10_5e-1")
+b_vals <- c("1", "100")
+r = r_vals[1]
+b = b_vals[1]
+file_name = paste0("leaders_model_r_",r,"_beta_",b,".Rdata")
+load(file_name)
+df <- as.data.frame(rjags_model$BUGSoutput$sims.matrix)
+
+sensitivity_df = data.frame()
+for (r in r_vals) {
+  for (b in b_vals) {
+    file_name = paste0("leaders_model_r_",r,"_beta_",b,".Rdata")
+    load(file_name)
+    wait = rjags_model$BUGSoutput$sims.matrix %>% as.data.frame() %>% select(survival_Francis) %>% 
+      mutate(r = expression(paste0("r = ", r, " beta = ", b)))
+    sensitivity_df = sensitivity_df %>% bind_rows(wait)
+  }
+}
+sensitivity_df %>% 
+  ggplot() + 
+  geom_density(aes(x = survival_Francis)) + 
+  facet_wrap(r~.,  scales = "free")
+``` 
+
+```{r}
 # Discussion 
 
 ## Posterior Predictive Distribution 
@@ -307,5 +378,4 @@ Bayesian_Leader_output$BUGSoutput$summary[c("survival_Francis",
 # Conclusion & Limitations 
 
 #########################
-where $\beta_0$ corresponds with the intercept, $\beta_1$ is the coefficient corresponding to `Time`, $\beta_{type} = (0, \beta_2, \beta_3, \beta_4, \beta_5)$ is the vector of coefficients corresponding to leadership types of Popes, Chinese Emperors, Dalai Lamas, Japanese Emperors, and US Presidents respectively, and $\beta_{type*time} = (0, \beta_6, \beta_7, \beta_8, \beta_9)$ is the vector of coefficient corresponding  to the interaction between `Time` and leadership type. 
-
+where $\beta_0$ corresponds with the intercept, $\beta_1$ is the coefficient corresponding to `Time`, $\beta_{type} = (0, \beta_2, \beta_3, \beta_4, \beta_5)$ is the vector of coefficients corresponding to leadership types of Popes, Chinese Emperors, Dalai Lamas, Japanese Emperors, and US Presidents respectively, and $\beta_{type*time} = (0, \beta_6, \beta_7, \beta_8, \beta_9)$ is the vector of coefficient corresponding  to the interaction between `Time` and leadership type.
