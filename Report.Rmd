@@ -415,6 +415,8 @@ sensitivity_df("beta_1")  %>%
 
 ## Posterior Predictive Distribution 
 
+We will address our second goal of providing posterior predictions of the lifespans of living leaders. Since we set the upper bound of the truncated Weibull distribution to 110, we expected the upper tails of the 95% credible intervals to be near 110. This is the case for all the leaders expect the 14th Dalia Lama, whose 97.5% quantile is 99.16. As previously discussed, there was a string of early deaths among Dalai Lamas in the 19th century, which may have impacted the posterior predictions for the 14th Dalai Lama. Furthermore, Dalai Lamas represent the smallest group of leadership type ($n = 14$), which limits the prediction. 
+
 ```{r}
 # tidybayes::gather_draws(Bayesian_Leaders_V7a %>% as.mcmc(), survival_Francis,
 #                         survival_Obama,
