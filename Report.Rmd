@@ -413,6 +413,36 @@ In the group of plots above, we explore the posterior distributions of $\beta_1$
 
 ### Residual Plots 
 
+We also examined the standardized residuals. We define the standardized residual $std\_r_i = \frac{T_i - E[T_i]}{sd[T_i]}$ and $std\_r_i$ is plotted against $Time_i$. The plot shows that the standardized residuals are generally randomly dispersed about 0, where the censored observations are marked by a red X. 
+
+```{r}
+modelOutput <- Bayesian_Leaders_output$BUGSoutput$summary %>% as.data.frame()
+survivalPredicted <- modelOutput[211:383, ] %>% select("mean", "sd", "2.5%", "50%", "97.5%")
+#creating dataframe with useful information (including prediction residuals and standardized residuals)
+leader <- filtered_leaders$Name
+censored_value <- as.factor(filtered_leaders$Censored)
+actual_survival <- filtered_leaders$Age.Event
+time <- filtered_leaders$time
+survivalPredicted <- survivalPredicted %>%
+  mutate(actual = actual_survival) %>%
+  mutate(name = leader) %>%
+  mutate(Censored = censored_value) %>%
+  mutate(Standardized_Residual = (actual-mean)/sd) %>%
+  mutate(Residual = actual-mean) %>%
+  mutate(time_of_birth = time)
+```
+
+```{r}
+#standardized residual plot
+shapes = c(16, 4) 
+shapes <- shapes[as.numeric(survivalPredicted$Censored)]
+plot(y = survivalPredicted$Standardized_Residual, x = survivalPredicted$time_of_birth, col= survivalPredicted$Censored, pch = shapes, main = "Standardized Residuals vs Time", xlab = "Time", ylab = "Standardized Residuals")
+abline(h =0)
+legend("topleft", legend = c("Censored", "Non-Censored"),
+      col =  c("black", "red"),
+      pch = c(16, 4), cex = 0.75)
+```
+
 ### Histograms and stuff 
 
 # Discussion 
