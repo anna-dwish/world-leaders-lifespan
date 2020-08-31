@@ -7,7 +7,7 @@ output:
       latex_engine: xelatex
 ---
 
-NOTE: In order for R chunks to run in a shorter period of time for models that do not exist, we shortened the RJAGs iterations to 2500. We recommend 150000-250000 iterations to ensure convergence.
+NOTE: In order for the model code chunks to run in a reasonable time for models that do not exist, we shortened the RJAGs iterations to 2500. We recommend 150000-250000 iterations to ensure convergence. Additionally, if you are struggling to download RJags, please visit the following link for help. It can also help to try to download the package locally or in RStudio Cloud: https://sites.google.com/a/utexas.edu/edm-principalstratification/downloading-installing-r-jags-rstudio
 
 # Loading In Packages and Data
 
@@ -28,7 +28,6 @@ pkgTest <- function(x)
 pkgTest("readr")
 pkgTest("dplyr")
 pkgTest("ggplot2")
-pkgTest("Epi")
 pkgTest("knitr")
 pkgTest("lubridate")
 pkgTest("R2jags")
@@ -43,7 +42,6 @@ knitr::opts_chunk$set(echo = TRUE)
 library(readr)
 library(dplyr)
 library(ggplot2)
-library(Epi)
 library(knitr)
 library(lubridate)
 library(R2jags)
@@ -137,38 +135,6 @@ ggplot(leaders, aes(x=time, y=Age.Event, shape=Type, color=Type)) +
 ```{r}
 qplot(x = time, y = Age.Event, data = leaders, color = Type) +
   geom_smooth(method = "lm", se=FALSE) + ylab("Lifespan (yrs)") + xlab("Relative Birth Date")
-```
-
-## Lexis Diagrams of Lifespans Across Leadership Type
-
-The code below creates lexis objects in order to display lexis diagrams for the lifespans of leaders across type. More information on this code can be found at this link: http://search.r-project.org/library/Epi/html/plot.Lexis.html
-
-```{r}
-leaderTypeTitles <- c("Popes", "US Presidents", "Chinese Emperors", "Dalai Lamas","Japanese Emperors")
-names(leaderTypeTitles) <- c("Pope", "UsPres", "ChinaEmp","DalaiLama","JapanEmp")
-
-plotLifeSpan <- function(leaderType) {
-  leaders.lexis <- leaders %>% filter(Type == leaderType) %>% data.frame
-  
-  # Used code from http://search.r-project.org/library/Epi/html/plot.Lexis.html to generate lexis plot
-  leaders.lexis$bt <- as.integer(substring(leaders.lexis$Birth.Date,0,4))
-  leaders.lexis$ex <- as.integer(substring(leaders.lexis$Event.Date,0,4))
-  
-  # Define as Lexis object with timescales calendar time and age
-  lifespans <- Lexis( entry = list( per=bt ),
-                      exit = list( per=ex, age=Age.Event ),
-                      exit.status = Fail,
-                      data = leaders.lexis )
-  plotTitle = paste0("Lexis Diagram of Lifespans of ",leaderTypeTitles[leaderType])
-  plot(lifespans, grid=0:20*5, col='black', xaxs="i", yaxs="i",
-       xlim=c(1300,2030), ylim=c(0,100), lwd=3, las=1 , main=plotTitle,
-       ylab="Lifespan (yrs)", xlab="Century") 
-  points( lifespans, pch=c(NA,16)[lifespans$lex.Xst+1], col="red", cex=1.5 )
-}
-
-for (leaderType in unique(leaders$Type)) {
-  plotLifeSpan(leaderType)
-}
 ```
 
 # Modeling 
@@ -580,13 +546,6 @@ if (file.exists(final_model_name)) {
 ## Traceplots 
 
 The following plots output traceplots of the different parameters and coefficients used in this model in order to verify those values have converged.
-
-```{r}
-Bayesian_Leaders_output$BUGSoutput$summary["y_pred_censored[102]",]
-
-bayesplot::ppc_stat(filtered_leaders %>% filter(Name == "John Paul II") %>% pull(Age.Event),
-                    tidybayes::gather_draws(Bayesian_Leaders_output %>% as.mcmc(), y_pred_censored[i]) %>% filter(i==2) %>% pull(.value) %>% as.matrix() )
-```
 
 ```{r fig.height=4, fig.align='center'}
 tidybayes::gather_draws(Bayesian_Leaders_output %>% coda::as.mcmc(), r, beta_0, beta_1) %>% 
