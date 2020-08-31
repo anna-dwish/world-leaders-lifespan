@@ -7,6 +7,8 @@ output:
       latex_engine: xelatex
 ---
 
+NOTE: In order for R chunks to run in a shorter period of time for models that do not exist, we shortened the RJAGs iterations to 2500. We recommend 150000-250000 iterations to ensure convergence.
+
 # Loading In Packages and Data
 
 ```{r, function checking for installed packages, include=FALSE}
@@ -333,7 +335,7 @@ generate_model = function(priors,model_name){
                                                "percentage_increase_int",
                                                "survival"
                         ), 
-                        n.iter = 250000, 
+                        n.iter = 2500, #increase for better model output - 250K
                         n.chains = 3,
                         model.file = model_file)
     save(rjags_model, file = model_name)
@@ -342,16 +344,9 @@ generate_model = function(priors,model_name){
 }
 ```
 
-```{r}
-display_model_output = function(model){
-  model$BUGSoutput$summary %>% 
-    as.data.frame() %>% 
-    select(-`25%`, -`75%`) %>% 
-    knitr::kable()
-}
-```
-
 # Models
+
+## Note: Increase n.iter in generate_model function when creating new models from default 2500
 
 ## Model From Paper, Original Id: 6a
 
@@ -591,32 +586,45 @@ Bayesian_Leaders_output$BUGSoutput$summary["y_pred_censored[102]",]
 
 bayesplot::ppc_stat(filtered_leaders %>% filter(Name == "John Paul II") %>% pull(Age.Event),
                     tidybayes::gather_draws(Bayesian_Leaders_output %>% as.mcmc(), y_pred_censored[i]) %>% filter(i==2) %>% pull(.value) %>% as.matrix() )
+```
 
-p1=tidybayes::gather_draws(Bayesian_Leaders_output %>% as.mcmc(), r, beta_0, beta_1) %>%  
+```{r fig.height=4, fig.align='center'}
+tidybayes::gather_draws(Bayesian_Leaders_output %>% coda::as.mcmc(), r, beta_0, beta_1) %>% 
+  ungroup() %>% 
   # tidyr::gather(key, value, "beta_0", "beta_1", "r", -i) %>% 
   ggplot() + 
-  geom_line(aes(x = .iteration, y = .value, color = .variable)) + 
-  facet_grid(.variable~., scales = "free_y")
-
-p2=tidybayes::gather_draws(Bayesian_Leaders_output %>% as.mcmc(), beta_type[i]) %>% 
-  filter(i != 1) %>% 
-  mutate(.variable = ifelse(is.na(i), .variable, paste0(.variable, "[",i, "]"))) %>% 
-  #tidyr::gather(key, value, `beta_type[2]`:`beta_type[5]`, -i) %>% 
-  ggplot() + 
-  geom_line(aes(x = .iteration, y = .value, color = .variable)) + 
-  facet_grid(.variable~., scales = "free_y")
-
-p3=tidybayes::gather_draws(Bayesian_Leaders_output %>% as.mcmc(), beta_int[i]) %>% 
-  filter(i != 1) %>% 
-  mutate(.variable = ifelse(is.na(i), .variable, paste0(.variable, "[",i, "]"))) %>% 
-  #tidyr::gather(key, value, `beta_type[2]`:`beta_type[5]`, -i) %>% 
-  ggplot() + 
-  geom_line(aes(x = .iteration, y = .value, color = .variable)) + 
+  geom_line(aes(x = .iteration, y = .value, color = as.factor(.chain)), alpha = 0.7) + 
   facet_grid(.variable~., scales = "free_y") + 
-  labs(title = "Traceplots for Interaction Effect",
-       x = "Iteration", y = "Value", color = "Parameter")
+  labs(title = expression(paste("Traceplots of ",beta[0], ", ", beta[1], ", and r")), 
+       x = "Iteration", y = "Value", color = "Chain")
+```
 
-cowplot::plot_grid(p1,p2,p3)
+
+```{r fig.height=4, fig.align='center'}
+tidybayes::gather_draws(Bayesian_Leaders_output %>% coda::as.mcmc(), beta_type[i]) %>% 
+  ungroup() %>% 
+  filter(i > 1) %>% 
+  mutate(.variable = ifelse(is.na(i), .variable, paste0(.variable, "[",i, "]"))) %>% 
+  # tidyr::gather(key, value, "beta_0", "beta_1", "r", -i) %>% 
+  ggplot() + 
+  geom_line(aes(x = .iteration, y = .value, color = as.factor(.chain)), alpha = 0.7) + 
+  facet_grid(.variable~., scales = "free_y") + 
+  labs(title = expression(paste("Traceplots of ", beta["2j"], " (coefficients for Type)")), 
+       x = "Iteration", y = "Value",color = "Chain")
+```
+
+
+```{r fig.height=4}
+tidybayes::gather_draws(Bayesian_Leaders_output %>% coda::as.mcmc(), beta_int[i]) %>% 
+  ungroup() %>% 
+  filter(i > 1) %>% 
+  mutate(.variable = ifelse(is.na(i), .variable, paste0(.variable, "[",i, "]"))) %>% 
+  # tidyr::gather(key, value, "beta_0", "beta_1", "r", -i) %>% 
+  ggplot() + 
+  geom_line(aes(x = .iteration, y = .value, color = as.factor(.chain)), alpha = 0.7) + 
+  facet_grid(.variable~., scales = "free_y") + 
+  labs(title = expression(paste("Traceplots of ", beta["3j"], " (coefficients for Type * Time)")), 
+       x = "Iteration", y = "Value", color = "Chain")
 ```
 
 ## Auto correlation Functions
