@@ -21,7 +21,8 @@ pkgTest <- function(x)
 ```
 
 ```{r include=FALSE}
-#Installing packages 
+# Installing packages 
+# Additionally, if you are struggling to download RJags, please visit the following link for help. It can also help to try to download the package locally or in RStudio Cloud: https://sites.google.com/a/utexas.edu/edm-principalstratification/downloading-installing-r-jags-rstudio
 pkgTest("tidyverse")
 pkgTest("knitr")
 pkgTest("kableExtra")
@@ -30,7 +31,7 @@ pkgTest("coda")
 pkgTest("tidybayes")
 pkgTest("gridExtra")
 pkgTest("grid")
-#Installing packages 
+pkgTest("R2jags") 
 pkgTest("readr")
 pkgTest("dplyr")
 pkgTest("ggplot2")
@@ -38,7 +39,6 @@ pkgTest("lubridate")
 pkgTest("tidyr")
 pkgTest("tibble")
 ```
-
 
 ```{r include=FALSE}
 knitr::opts_chunk$set(echo = FALSE,
@@ -53,6 +53,7 @@ library(coda)
 library(tidybayes)
 library(gridExtra)
 library(grid)
+library(R2jags)
 library(readr)
 library(dplyr)
 library(ggplot2)
@@ -97,8 +98,380 @@ alive = c("Barack Obama","Francis","14th Dalai Lama (Tenzin Gyatso)", "Naruhito 
 filtered_leaders = leaders %>% 
   filter(!Name %in% alive)
 
-load("leaders_model_r_25_2e-1_beta_1.Rdata")
-Bayesian_Leaders_output <- rjags_model
+#load("leaders_model_r_25_2e-1_beta_1.Rdata")
+#Bayesian_Leaders_output <- rjags_model
+```
+
+```{r}
+alive = c("Barack Obama","Francis","14th Dalai Lama (Tenzin Gyatso)", "Naruhito (Emperor Reiwa)")
+filtered_leaders = leaders %>% 
+  filter(!Name %in% alive)
+
+n <- nrow(filtered_leaders)
+Age.Event <- filtered_leaders$Age.Event
+censored <- filtered_leaders$Censored
+survival <- ifelse(censored == 0, Age.Event, NA)
+censoring_limits <- ifelse(censored == 0, 100, Age.Event)
+
+# Co-variates
+x_1 <- filtered_leaders$time - mean(filtered_leaders$time)
+x_2 <- filtered_leaders$Type %>% as.factor() %>% relevel("Pope")
+```
+
+```{r}
+# predictive info for Francis, Obama, and Naruhito
+# 1 = Pope, 2 = ChineseEmp, 3 = DalaiLama, 4 = JapanEmp, 5 = UsPres
+#Dalai Lama
+time_DL <- 6.3549350 - mean(filtered_leaders$time)
+type_DL <- 3
+present_age_DL <- 85.153833
+
+#Francis
+time_Francis <- 6.3694456 - mean(filtered_leaders$time)
+type_Francis <- 0
+present_age_Francis <- 83.702772
+
+#Obama
+time_Obama <- 6.6157426 - mean(filtered_leaders$time)
+type_Obama <- 5
+present_age_Obama <- 59.073066
+
+#Naruhito
+time_Naruhito <- 6.6012868 - mean(filtered_leaders$time)
+type_Naruhito <- 4
+present_age_Naruhito <- 60.518652
+
+present_age <- ifelse(censored == 0, 0, filtered_leaders$Age.Event)
+upper_age <- 110
+```
+
+```{r}
+data_leaders <- list("n",
+                     "censored",
+                     "survival",
+                     "censoring_limits",
+                     "x_1",
+                     "x_2", 
+                     "present_age",
+                     "upper_age",
+                     "time_Francis",
+                     "present_age_Francis",
+                     "time_Obama",
+                     "type_Obama",
+                     "present_age_Obama",
+                     "time_DL",
+                     "type_DL",
+                     "present_age_DL",
+                     "time_Naruhito",
+                     "type_Naruhito",
+                     "present_age_Naruhito")
+```
+
+```{r}
+generate_model_text = function(priors=""){
+  model_file <- tempfile()
+  
+  likelihood = "#Likelihood
+  for (i in 1:n){ 
+    censored[i] ~ dinterval(survival[i], censoring_limits[i]) 
+    survival[i] ~ dweib(r, mu[i]) # Basic Weibull assumption
+    mu[i] <- exp(beta[i])  # Defining beta as log(mu)
+    beta[i] <- beta_0 + beta_1*x_1[i] + beta_type[x_2[i]] + beta_int[x_2[i]] * x_1[i] 
+    y_pred_censored[i] ~ dweib(r, mu[i])T(present_age[i], upper_age)
+  }
+    
+  #Priors
+  beta_type[1] <- 0
+  beta_int[1] <- 0
+  "
+  
+  predicted_survivals = "
+  #Define the alphas
+  alpha_0 <- - beta_0 / r
+  alpha_1 <- - beta_1 / r
+  percentage_increase_birthyr <- 100*(exp(alpha_1) - 1)
+  for (i in 2:5) {
+    alpha_type[i] <- - beta_type[i] / r
+    alpha_int[i] <- -beta_int[i] / r
+    percentage_increase_type[i] <- 100*(exp(alpha_type[i]) - 1)
+    percentage_increase_int[i] <- 100*(exp(alpha_int[i]) - 1)
+  }
+  
+  beta_Francis <- beta_0 + beta_1*time_Francis 
+  mu_Francis <- exp(beta_Francis)
+  survival_Francis ~ dweib(r, mu_Francis)T(present_age_Francis, upper_age)
+  
+  beta_Obama <- beta_0 + beta_1*time_Obama + 
+    beta_type[type_Obama] + beta_int[type_Obama]*time_Obama
+  mu_Obama <- exp(beta_Obama)
+  survival_Obama ~ dweib(r, mu_Obama)T(present_age_Obama, upper_age)
+  
+  beta_Naruhito <- beta_0 + beta_1*time_Naruhito + beta_type[type_Naruhito] +
+    beta_int[type_Naruhito]*time_Naruhito
+  mu_Naruhito <- exp(beta_Naruhito)
+  survival_Naruhito ~ dweib(r, mu_Naruhito)T(present_age_Naruhito, upper_age)
+  
+  beta_DL <- beta_0 + beta_1*time_DL + beta_type[type_DL] + beta_int[type_DL]*time_DL
+  mu_DL <- exp(beta_DL)
+  survival_DL ~ dweib(r, mu_DL)T(present_age_DL, upper_age)
+  "
+  
+  model_text <- paste("model{ ",likelihood, priors, predicted_survivals, "}")
+  writeLines(model_text,con=model_file)
+  return(model_file)
+}
+```
+
+```{r}
+generate_model = function(priors,model_name){
+  model_file <- generate_model_text(priors)
+  if (file.exists(model_name)) {
+    load(file = model_name)
+  } 
+  else {
+    
+    rjags_model <-  jags.parallel(data = data_leaders,  
+                        parameters.to.save = c("beta_0",
+                                               "beta_1",
+                                               "beta_type",
+                                               "beta_int",
+                                               "r",
+                                               "y_pred_censored",
+                                               "survival_Francis",
+                                               "survival_Obama",
+                                               "survival_Naruhito",
+                                               "survival_DL",
+                                               "alpha_0",
+                                               "alpha_1",
+                                               "percentage_increase_birthyr",
+                                               "alpha_type",
+                                               "alpha_int",
+                                               "percentage_increase_type",
+                                               "percentage_increase_int",
+                                               "survival"
+                        ), 
+                        n.iter = 2500, #increase for better model output - 250K
+                        n.chains = 3,
+                        model.file = model_file)
+    save(rjags_model, file = model_name)
+  }
+  return(rjags_model)
+}
+```
+
+```{r}
+## Model From Paper, Original Id: 6a
+priors <- "
+  for(i in 2:5) {
+    beta_type[i] ~ dnorm(0.0, 1)
+    beta_int[i] ~ dnorm(0.0, 1)
+  }
+  
+  beta_0 ~ dnorm(0.0, 1)
+  beta_1 ~ dnorm(0.0, 1)
+  
+  r ~ dgamma(25,0.2) # Prior on 
+  "
+Bayesian_Leaders_output <- generate_model(priors,"leaders_model_r_25_2e-1_beta_1.Rdata")
+```
+
+
+```{r}
+## Model 1a: r ~ exp(0.001), Betas ~ N(0,1)
+priors <- "
+  for(i in 2:5) {
+    beta_type[i] ~ dnorm(0.0, 1)
+    beta_int[i] ~ dnorm(0.0, 1)
+  }
+  
+  beta_0 ~ dnorm(0.0, 1) # Prior on beta_0 is normal with low precision
+  beta_1 ~ dnorm(0.0, 1) # Prior on beta_1 is normal with low precision
+  
+  # http://mikemeredith.net/blog/2017/Categories_in_JAGS.htm
+  # potentially set different prior for dalai lamas (negative mean or somethin)
+  
+  r ~ dexp(0.001) # Prior on r
+  "
+Bayesian_Leaders_V1a <- generate_model(priors,"leaders_model_r_1e-3_beta_1.Rdata")
+```
+
+```{r}
+## Model 1b: r ~ exp(0.001), Betas ~ N(0,100)
+priors <- "
+  for(i in 2:5) {
+    beta_type[i] ~ dnorm(0.0, .01)
+    beta_int[i] ~ dnorm(0.0, .01)
+  }
+  
+  beta_0 ~ dnorm(0.0, .01) # Prior on beta_0 is normal with low precision
+  beta_1 ~ dnorm(0.0, .01) # Prior on beta_1 is normal with low precision
+  
+  # http://mikemeredith.net/blog/2017/Categories_in_JAGS.htm
+  # potentially set different prior for dalai lamas (negative mean or somethin)
+  
+  r ~ dexp(0.001) # Prior on r
+  "
+Bayesian_Leaders_V1b <- generate_model(priors,"leaders_model_r_1e-3_beta_100.Rdata")
+```
+
+```{r}
+## Model 2a - r ~ exp(0.1), Betas ~ N(0,1)
+priors <- "
+  for(i in 2:5) {
+    beta_type[i] ~ dnorm(0.0, 1)
+    beta_int[i] ~ dnorm(0.0, 1)
+  }
+  
+  beta_0 ~ dnorm(0.0, 1)
+  beta_1 ~ dnorm(0.0, 1)
+  
+  r ~ dexp(0.1) # Prior on r
+  "
+Bayesian_Leaders_V2a <- generate_model(priors,"leaders_model_r_1e-1_beta_1.Rdata")
+```
+
+
+```{r}
+## Model 2b - r ~ exp(0.1), Betas ~ N(0,100)
+
+priors <- "
+  for(i in 2:5) {
+    beta_type[i] ~ dnorm(0.0, .01)
+    beta_int[i] ~ dnorm(0.0, .01)
+  }
+  
+  beta_0 ~ dnorm(0.0, .01)
+  beta_1 ~ dnorm(0.0, .01)
+  
+  r ~ dexp(0.1) # Prior on r
+  "
+Bayesian_Leaders_V2b <- generate_model(priors,"leaders_model_r_1e-1_beta_100.Rdata")
+```
+
+```{r}
+## Model 3a - r ~ exp(1), Betas ~ N(0,1)
+
+priors <- "
+  for(i in 2:5) {
+    beta_type[i] ~ dnorm(0.0, 1)
+    beta_int[i] ~ dnorm(0.0, 1)
+  }
+  
+  beta_0 ~ dnorm(0.0, 1)
+  beta_1 ~ dnorm(0.0, 1)
+  
+  r ~ dexp(1) # Prior on r
+  "
+Bayesian_Leaders_V3a <- generate_model(priors,"leaders_model_r_1_beta_1.Rdata")
+```
+
+
+
+```{r}
+## Model 3b - r ~ exp(1), Betas ~ N(0,100)
+priors <- "
+  for(i in 2:5) {
+    beta_type[i] ~ dnorm(0.0, 100)
+    beta_int[i] ~ dnorm(0.0, 100)
+  }
+  
+  beta_0 ~ dnorm(0.0, .01)
+  beta_1 ~ dnorm(0.0, .01)
+  
+  r ~ dexp(1) # Prior on r
+  "
+Bayesian_Leaders_V3b <- generate_model(priors,"leaders_model_r_1_beta_100.Rdata")
+```
+
+
+
+
+```{r}
+## Model 4a - r ~ exp(2), Betas ~ N(0,1)
+priors <- "
+  for(i in 2:5) {
+    beta_type[i] ~ dnorm(0.0, 1)
+    beta_int[i] ~ dnorm(0.0, 1)
+  }
+  
+  beta_0 ~ dnorm(0.0, 1)
+  beta_1 ~ dnorm(0.0, 1)
+  
+  r ~ dexp(2) # Prior on r
+  "
+Bayesian_Leaders_V4a <- generate_model(priors,"leaders_model_r_2_beta_1.Rdata")
+```
+
+
+
+```{r}
+## Model 4b - r ~ exp(2), Betas ~ N(0,100)
+priors <- "
+  for(i in 2:5) {
+    beta_type[i] ~ dnorm(0.0, 0.01)
+    beta_int[i] ~ dnorm(0.0, 0.01)
+  }
+  
+  beta_0 ~ dnorm(0.0, 0.01)
+  beta_1 ~ dnorm(0.0, 0.01)
+  
+  r ~ dexp(2) # Prior on r
+  "
+Bayesian_Leaders_V4b <- generate_model(priors,"leaders_model_r_2_beta_100.Rdata")
+```
+
+
+
+```{r}
+## Model 5a - r ~ gamma(10,0.5), Betas ~ N(0,1)
+priors <- "
+  for(i in 2:5) {
+    beta_type[i] ~ dnorm(0.0, 1)
+    beta_int[i] ~ dnorm(0.0, 1)
+  }
+  
+  beta_0 ~ dnorm(0.0, 1)
+  beta_1 ~ dnorm(0.0, 1)
+  
+  r ~ dgamma(10,0.5) # Prior on r
+  "
+Bayesian_Leaders_V5a <- generate_model(priors,"leaders_model_r_10_5e-1_beta_1.Rdata")
+```
+
+
+
+```{r}
+## Model 5b - r ~ gamma(10,0.5), Betas ~ N(0,100)
+priors <- "
+  for(i in 2:5) {
+    beta_type[i] ~ dnorm(0.0, 0.01)
+    beta_int[i] ~ dnorm(0.0, 0.01)
+  }
+  
+  beta_0 ~ dnorm(0.0, 0.01)
+  beta_1 ~ dnorm(0.0, 0.01)
+  
+  r ~ dgamma(10,0.5) # Prior on r
+  "
+Bayesian_Leaders_V5b <- generate_model(priors,"leaders_model_r_10_5e-1_beta_100.Rdata")
+```
+
+
+
+```{r}
+## Model 6b - r=gamma(25,0.2), Betas: N(0,100)
+priors <- "
+  for(i in 2:5) {
+    beta_type[i] ~ dnorm(0.0, 0.01)
+    beta_int[i] ~ dnorm(0.0, 0.01)
+  }
+  
+  beta_0 ~ dnorm(0.0, 0.01)
+  beta_1 ~ dnorm(0.0, 0.01)
+  
+  r ~ dgamma(25,0.2) # Prior on r
+  "
+Bayesian_Leaders_V6b <- generate_model(priors,"leaders_model_r_25_2e-1_beta_100.Rdata")
 ```
 
 # Introduction 
