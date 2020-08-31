@@ -29,7 +29,21 @@ pkgTest("kableExtra")
 pkgTest("stringr")
 pkgTest("coda")
 pkgTest("tidybayes")
+
+#Installing packages 
+pkgTest("readr")
+pkgTest("dplyr")
+pkgTest("ggplot2")
+pkgTest("Epi")
+pkgTest("knitr")
+pkgTest("lubridate")
+pkgTest("R2jags")
+pkgTest("tidyr")
+pkgTest("kableExtra")
+pkgTest("tibble")
+pkgTest("tidybayes")
 ```
+
 
 ```{r include=FALSE}
 knitr::opts_chunk$set(echo = FALSE,
@@ -37,12 +51,23 @@ knitr::opts_chunk$set(echo = FALSE,
                       warning = FALSE)
 ```
 
-```{r out.width="50%"}
+```{r }
 library(tidyverse)
 library(knitr)
 library(kableExtra)
 library(stringr)
 library(coda)
+library(tidybayes)
+library(readr)
+library(dplyr)
+library(ggplot2)
+library(Epi)
+library(knitr)
+library(lubridate)
+library(R2jags)
+library(tidyr)
+library(kableExtra)
+library(tibble)
 library(tidybayes)
 load("Leaders.Rdata")
 leaders <- as.data.frame(leaders)
@@ -79,8 +104,8 @@ alive = c("Barack Obama","Francis","14th Dalai Lama (Tenzin Gyatso)", "Naruhito 
 filtered_leaders = leaders %>% 
   filter(!Name %in% alive)
 
-load("leaders_model_r_1_beta_1.Rdata")
-Bayesian_Leader_output <- rjags_model
+load("leaders_model_r_25_2e-1_beta_1.rdata")
+Bayesian_Leaders_output <- rjags_model
 ```
 
 
@@ -239,7 +264,7 @@ We fit our initial model on the data to obtain posterior values for our paramete
 ## Summary of Parameters (AND interpretations)
 
 ```{r}
-post_summary_df <- Bayesian_Leader_output$BUGSoutput$summary %>% 
+post_summary_df <- Bayesian_Leaders_output$BUGSoutput$summary %>% 
   as.data.frame() 
 rows <- c("r", "beta_0", "beta_1", 
           "beta_type[1]", "beta_type[2]", "beta_type[3]", "beta_type[4]", "beta_type[5]",
@@ -262,8 +287,8 @@ post_summary_df %>%
          #Rhat = ifelse((mean == "(Reference)" & sd == ""), "", Rhat)
   ) %>% 
   kableExtra::kable(booktabs = T, caption = "Parameters obtained with Model 1.1, with 95\\% Credible Intervals (CI)",
-                  col.names = c("Parameter", "Mean", "Std. Dev.", "95% CI"#, "Rhat"
-                  )) %>% 
+                    col.names = c("Parameter", "Mean", "Std. Dev.", "95% CI"#, "Rhat"
+                    )) %>% 
   #kable_styling(font_size = 10) %>% 
   
   pack_rows("Type", 4,8) %>% 
@@ -279,26 +304,74 @@ ADD TABLE OF INTERPRETATIONS
 
 We perform several model diagnostics to assess model integrity. Traceplots and $\hat{R}$[1] (maybe add source for GElman and Rubin) suggest that the chains for each parameter have converged and mix well, and autocorrelation plots indicate a low correlation between the simulations. (maybe include plots, maybe not)
 
-```{r}
-tidybayes::gather_draws(Bayesian_Leader_output %>% coda::as.mcmc(), r, beta_0, beta_1) %>%  
-  # tidyr::gather(key, value, "beta_0", "beta_1", "r", -i) %>% 
-  ggplot() + 
-  geom_line(aes(x = .iteration, y = .value, color = .variable)) + 
-  facet_grid(.variable~., scales = "free_y")
-```
-
 ### Convergence & Autocorrelation Plots 
 
-We examine traceplots for each of the parameter values. A traceplot with random scatter around a mean value indicates that the model has converged. $\hat{R}$ provides an estimate of convergence based on the variance of an estimated parameter between chains, and the variance wtihin a chain. The closer the $\hat{R}$ value to 1, the better the model has converged.   
+```{r}
+tidybayes::gather_draws(Bayesian_Leaders_output %>% coda::as.mcmc(), r, beta_0, beta_1) %>% 
+  ungroup() %>% 
+  # tidyr::gather(key, value, "beta_0", "beta_1", "r", -i) %>% 
+  ggplot() + 
+  geom_line(aes(x = .iteration, y = .value, color = as.factor(.chain)), alpha = 0.7) + 
+  facet_grid(.variable~., scales = "free_y") + 
+  labs(title = expression(paste("Traceplots of ", beta[0], ", ", beta[1], ", r")), 
+       x = "Iteration", y = "Value",  color = "Chain")
+
+tidybayes::gather_draws(Bayesian_Leaders_output %>% coda::as.mcmc(), beta_type[i]) %>% 
+  ungroup() %>% 
+  filter(i > 1) %>% 
+  mutate(.variable = ifelse(is.na(i), .variable, paste0(.variable, "[",i, "]"))) %>% 
+  # tidyr::gather(key, value, "beta_0", "beta_1", "r", -i) %>% 
+  ggplot() + 
+  geom_line(aes(x = .iteration, y = .value, color = as.factor(.chain)), alpha = 0.7) + 
+  facet_grid(.variable~., scales = "free_y") + 
+  labs(title = expression(paste("Traceplots of ", beta["2j"], " (coefficients for Type)")), 
+       x = "Iteration", y = "Value",  color = "Chain")
+
+tidybayes::gather_draws(Bayesian_Leaders_output %>% coda::as.mcmc(), beta_int[i]) %>% 
+  ungroup() %>% 
+  filter(i > 1) %>% 
+  mutate(.variable = ifelse(is.na(i), .variable, paste0(.variable, "[",i, "]"))) %>% 
+  # tidyr::gather(key, value, "beta_0", "beta_1", "r", -i) %>% 
+  ggplot() + 
+  geom_line(aes(x = .iteration, y = .value, color = as.factor(.chain)), alpha = 0.7) + 
+  facet_grid(.variable~., scales = "free_y") + 
+  labs(title = expression(paste("Traceplots of ", beta["3j"], " (coefficients for Type * Time)")), 
+       x = "Iteration", y = "Value",  color = "Chain")
+
+plot_acf <- function(parameter) {
+  Bayesian_Leaders_output$BUGSoutput$sims.matrix %>% 
+    as_tibble() %>% 
+    pull(parameter) %>% 
+    acf(main = paste0("Lag-1 Autocorrelation for ", parameter))
+}
+for (param in c("r","beta_0", "beta_1",
+              "beta_type[2]", "beta_type[3]", "beta_type[4]", "beta_type[5]", 
+                "beta_int[2]", "beta_int[3]", "beta_int[4]", "beta_int[5]")) {
+  plot_acf(param)
+}
+
+```
+
+To determine if our model has converged sufficiently, we first examine traceplots for each of the parameter values. A traceplot with random scatter around a mean value indicates that the model has converged. $\hat{R}$ provides an estimate of convergence based on the variance of an estimated parameter between chains, and the variance wtihin a chain. The closer the $\hat{R}$ value to 1, the better the model has converged. Visually, we see that our chains have mixed well and that the $\hat{R}$ values are  all very close to 1, indicating that our model has sufficiently converged. 
+
+To determine if our model has reached a stationary distribution, we first looked at autocorrelation plots because each simulation in the MCMC process is serially corrleated with the previous simulations. The lag-1 autocorrelation plots peak at the beginning and then bounce around 0. In addition, $n_{eff}$ gives a measure of effective sample size. Ideally, we want this number to equal the number of posterior draws, or be at least 200. The autocorrelation plots and large $n_eff$ values indicate that our MCMC process has sufficiently reached a stationary distribution. 
+
+```{r}
+rhat_neff = Bayesian_Leaders_output$BUGSoutput$summary %>% as.data.frame() %>% select(Rhat, `n.eff`) 
+rows <- c("r", "beta_0", "beta_1", 
+          "beta_type[1]", "beta_type[2]", "beta_type[3]", "beta_type[4]", "beta_type[5]",
+          "beta_int[1]", "beta_int[2]", "beta_int[3]", "beta_int[4]", "beta_int[5]"
+)
+
+rhat_neff[rows,]
+```
+
 
 ### Sensitivity Analysis 
 
-```{r}
+```{r eval=FALSE}
 r_vals <- c("1e-3", "1", "10_5e-1")
 b_vals <- c("1", "100")
-r_vals[3]
-
-str_split(r_vals[3], "_")[[1]][2]
 sensitivity_df = function(param) {
   df = data.frame()
   for (r in r_vals) {
@@ -349,7 +422,7 @@ sensitivity_df("beta_1")  %>%
 #                         survival_DL) %>% 
 #   ungroup() 
 
-# Bayesian_Leader_output$BUGSoutput$summary[c("survival_Francis",
+# Bayesian_Leaders_output$BUGSoutput$summary[c("survival_Francis",
 #                                             "survival_Obama",
 #                                             "survival_Naruhito",
 #                                             "survival_DL"), ] %>% 
@@ -384,7 +457,7 @@ al_index = alive_leaders %>%
 al_names = alive_leaders %>% pull(Name) %>% str_remove_all("\\s*\\([^\\)]+\\)")
 al_cur_age = alive_leaders %>% pull(Age.Event)
 al_type = alive_leaders %>% pull(Type)
-Bayesian_Leader_output$BUGSoutput$summary[c("survival_Francis",
+Bayesian_Leaders_output$BUGSoutput$summary[c("survival_Francis",
                                             "survival_Obama",
                                             "survival_DL",
                                             "survival_Naruhito",
@@ -405,7 +478,7 @@ Bayesian_Leader_output$BUGSoutput$summary[c("survival_Francis",
   mutate("95% CI" = paste0("(", `2.5%`,", ", `97.5%`, ")")) %>% 
   select(rowname, type,  cur_age, mean, `50%`, sd, "95% CI") %>% 
   kableExtra::kable(booktabs = TRUE, caption = "Posterior Predictions for Lifespans of Living Leaders", 
-                  col.names = c("Leader", "Type", "Current Age", "Mean", "Median", "Std. Dev.", "95% CI")) %>% 
+                    col.names = c("Leader", "Type", "Current Age", "Mean", "Median", "Std. Dev.", "95% CI")) %>% 
   kable_styling(position = "center") %>%  
   row_spec(0, bold = TRUE) %>% 
   column_spec(column = c(3:7), latex_column_spec = "c") %>% 
@@ -419,8 +492,8 @@ Bayesian_Leader_output$BUGSoutput$summary[c("survival_Francis",
 ```{r}
 # probability that the 14th Dalai Lama will have a longer lifespan than Pope Francis
 
-survival_DL <- Bayesian_Leader_output$BUGSoutput$sims.matrix[,"survival_DL"]
-survival_Francis <- Bayesian_Leader_output$BUGSoutput$sims.matrix[,"survival_Francis"]
+survival_DL <- Bayesian_Leaders_output$BUGSoutput$sims.matrix[,"survival_DL"]
+survival_Francis <- Bayesian_Leaders_output$BUGSoutput$sims.matrix[,"survival_Francis"]
 
 
 DL_vs_francis <- survival_DL - survival_Francis
@@ -430,8 +503,8 @@ ggplot(diffData, aes(x = DL_vs_francis, y = ..density..)) + geom_histogram(binwi
 
 #probability that Obama will live longer thatn Naruhito
 
-survival_Obama <- Bayesian_Leader_output$BUGSoutput$sims.matrix[,"survival_Obama"]
-survival_Naruhito <- Bayesian_Leader_output$BUGSoutput$sims.matrix[,"survival_Naruhito"]
+survival_Obama <- Bayesian_Leaders_output$BUGSoutput$sims.matrix[,"survival_Obama"]
+survival_Naruhito <- Bayesian_Leaders_output$BUGSoutput$sims.matrix[,"survival_Naruhito"]
 
 mean(survival_Obama > survival_Naruhito)
 med <- median(survival_Obama > survival_Naruhito)
