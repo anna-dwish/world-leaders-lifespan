@@ -235,8 +235,8 @@ post_summary_df %>%
                     )) %>% 
   #kable_styling(font_size = 10) %>% 
   
-  pack_rows("Type", 4,8) %>% 
-  pack_rows("Type*Time", 9,13)
+  kableExtra::pack_rows("Type", 4,8) %>% 
+  kableExtra::pack_rows("Type*Time", 9,13)
 ```
 
 Using JAGS, we ran Model 1.1 with 250,000 simulations to determine the posterior density $\pi(r, \beta_0, \beta_1, \beta_{2j}, \beta_{3j}\, | \,data)$, with results summarized in Table 1. The 95% credible interval is created using the 2.5%  and 97.5% quantiles.
@@ -300,8 +300,8 @@ bind_rows(Multiplicative_Scale_Factor,
   kableExtra::kable(booktabs = TRUE, 
                     caption = "Posterior Predictions for Lifespans of Living Leaders", 
                     col.names = c("Leadership Type", "Mean", "95% CI")) %>% 
-  pack_rows("Multiplicative Difference", 1,5) %>% 
-  pack_rows("Percent Difference", 6,10)
+  kableExtra::pack_rows("Multiplicative Difference", 1,5) %>% 
+  kableExtra::pack_rows("Percent Difference", 6,10)
 ```
 
 These values indicate that, barring the Dalai Lamas, as birth year increases by a decade, the expected survival time increases as well. For United States presidents, a decade increase in birth year results in the greatest expected percentage increase in surival time, at 1.18%. For Popes, Chinese Emperors, and Japanese Emperors, the expected increases are slightly more modest, hovering around 0.3%. In contrast, the expect survival time change for a decade increase in birth year for the Dalai Lama is -1.54%. This is consistent with the string of successive early deaths among these leaders that occurred in the 19th and 20th centuries.
@@ -468,10 +468,10 @@ al_names = alive_leaders %>% pull(Name) %>% str_remove_all("\\s*\\([^\\)]+\\)")
 al_cur_age = alive_leaders %>% pull(Age.Event)
 al_type = alive_leaders %>% pull(Type)
 Bayesian_Leaders_output$BUGSoutput$summary[c("survival_Francis",
-                                            "survival_Obama",
-                                            "survival_DL",
-                                            "survival_Naruhito",
-                                            al_index), ] %>%
+                                             "survival_Obama",
+                                             "survival_DL",
+                                             "survival_Naruhito",
+                                             al_index), ] %>%
   as.data.frame() %>% 
   tibble::rownames_to_column() %>% 
   mutate(rowname = al_names,
@@ -493,8 +493,8 @@ Bayesian_Leaders_output$BUGSoutput$summary[c("survival_Francis",
   row_spec(0, bold = TRUE) %>% 
   column_spec(column = c(3:7), latex_column_spec = "c") %>% 
   #kable_styling(position = "center", latex_options = c("hold_position")) %>% 
-  # add_header_above(c(" " = 3, "Posterior Values" = 4)) %>% 
-  row_spec(0:10, align = "c")
+  add_header_above(c(" " = 3, "Posterior Values" = 4))  
+  
 
 ```
 
@@ -509,7 +509,14 @@ survival_Francis <-Bayesian_Leaders_output$BUGSoutput$sims.matrix[,"survival_Fra
 
 DL_vs_francis <- survival_DL - survival_Francis
 DL_vs_francis_data <- as.data.frame(DL_vs_francis)
-ggplot(DL_vs_francis_data, aes(x = DL_vs_francis, y = ..density..)) + geom_histogram(binwidth = 3) + labs(x = "Difference in Predicted Survival Times (Dali Lama - Francis)", y = "Predictive Probability density", title = "Distribution of Difference in Predicted Survival Times for Dali Lama and Pope Francis") +  theme_light() + geom_vline(xintercept=mean(DL_vs_francis), color = "blue")
+ggplot(DL_vs_francis_data, aes(x = DL_vs_francis, y = ..density..)) + 
+  geom_histogram(binwidth = 4) + 
+  labs(x = "Difference in Life Expectancy (Dali Lama - Francis)",
+       y = "Predictive Probability Density", 
+       title = "Distribution of Difference in Predicted Life Expectancy", 
+       subtitle = "Dali Lama and Pope Francis") + 
+  theme_light() + 
+  geom_vline(xintercept=mean(DL_vs_francis), color = "blue")
 
 ```
 
@@ -524,7 +531,14 @@ survival_Naruhito <- Bayesian_Leaders_output$BUGSoutput$sims.matrix[,"survival_N
 
 Obama_vs_naruhito <- survival_Obama - survival_Naruhito
 Obama_vs_naruhito_data <- as.data.frame(Obama_vs_naruhito)
-ggplot(Obama_vs_naruhito_data, aes(x = Obama_vs_naruhito, y = ..density..)) + geom_histogram(binwidth = 3) + labs(title ="Distribution of Difference in Predicted Survival Times for President Obama and Emperor Naruhito" ,x = "Difference in Predicted Survival Times (Obama - Naruhito)", y = "Predictive Probability density")  +  theme_light() + geom_vline(xintercept=mean(Obama_vs_naruhito), color = "blue") 
+ggplot(Obama_vs_naruhito_data, aes(x = Obama_vs_naruhito, y = ..density..)) + 
+  geom_histogram(binwidth = 4) + 
+  labs(title ="Distribution of Difference in Predicted Life Expectancy",
+       subtitle = "President Obama and Emperor Naruhito",
+       x = "Difference in Life Expectancy (Obama - Naruhito)", 
+       y = "Predictive Probability Density")  +  
+  theme_light() + 
+  geom_vline(xintercept=mean(Obama_vs_naruhito), color = "blue") 
 ```
 
 In observing the posterior predictive samples for the survival times of the President Obama and Emperor Naruhito, we note that in  `100*mean(survival_Obama > survival_Naruhito)` % of the simulated samples,  President Obama is predicted to have a longer lifespan. Consequently, there is  around a `mean(survival_Obama > survival_Naruhito)` probability that Obama  will have a longer lifespan than Naruhito. In examining the posterior distribution of the differences between the predicted survival times of the two leaders (Obama - Naruhito), we note a quite normal distribution with a mean of `mean(DL_vs_francis)`(shown by the blue line) and median of `median(DL_vs_francis)`, both close to zero. This indicates that, on average, the posterior predictions for the survival time of President Obama are only `mean(DL_vs_francis)` years above that of Emperor Naruhito. 
