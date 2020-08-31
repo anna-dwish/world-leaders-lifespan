@@ -567,15 +567,6 @@ priors <- "
   r ~ dgamma(25,0.2) # Prior on r
   "
 Bayesian_Leaders_V6b <- generate_model(priors,"leaders_model_r_25_2e-1_beta_100.Rdata")
-tidybayes::gather_draws(Bayesian_Leaders_V6b %>% as.mcmc(), y_pred[i]) %>% 
-  ungroup() %>%
-  filter(i == 1) %>% 
-  ggplot() + geom_histogram(aes(x = .value)) + 
-  geom_vline(xintercept = filtered_leaders %>% filter(Name == "Benedict XVI" | Name == "Leo XIII") %>% pull(Age.Event))
-
-
-bayesplot::ppc_stat(filtered_leaders %>% filter(Name == "John Paul II") %>% pull(Age.Event),
-                    tidybayes::gather_draws(Bayesian_Leaders_V6b %>% as.mcmc(), y_pred[i]) %>% filter(i==2) %>% pull(.value) %>% as.matrix() )
 ```
 
 # Model Evaluation
@@ -760,7 +751,22 @@ bind_rows(Multiplicative_Scale_Factor,
   pack_rows("Multiplicative Difference", 1,5) %>% 
   pack_rows("Percent Difference", 6,10)
 ```
-
+```{r}
+modelOutput <- Bayesian_Leaders_output$BUGSoutput$summary %>% as.data.frame()
+survivalPredicted <- modelOutput[211:383, ] %>% select("mean", "sd", "2.5%", "50%", "97.5%")
+#creating dataframe with useful information (including prediction residuals and standardized residuals)
+leader <- filtered_leaders$Name
+censored_value <- as.factor(filtered_leaders$Censored)
+actual_survival <- filtered_leaders$Age.Event
+time <- filtered_leaders$time
+survivalPredicted <- survivalPredicted %>%
+  mutate(actual = actual_survival) %>%
+  mutate(name = leader) %>%
+  mutate(Censored = censored_value) %>%
+  mutate(Standardized_Residual = (actual-mean)/sd) %>%
+  mutate(Residual = actual-mean) %>%
+  mutate(time_of_birth = time)
+```
 
 ```{r}
 #qqplot of residuals
