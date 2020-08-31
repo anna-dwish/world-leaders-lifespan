@@ -824,15 +824,39 @@ bind_rows(Multiplicative_Scale_Factor,
   row_spec(0, bold = TRUE) %>% 
   column_spec(column = c(2:3), latex_column_spec = "c") %>% 
   column_spec(column = c(1), width = "20em")
+
+model <- Bayesian_Leaders_output$BUGS$summary %>% as.data.frame()
+
+#Chinese Emperors
+ce_int <- exp(model$mean[7])
+
+#Dalai Lamas
+dl_int <- exp(model$mean[8])
+
+#Japanese Emperor
+je_int <- exp(model$mean[9])
+
+#US Pres
+us_int <- exp(model$mean[10])
+model <- Bayesian_Leaders_output$BUGS$summary %>% as.data.frame()
+#Chinese Emperors
+ce_int <- exp(model$mean[7])
+#Dalai Lamas
+dl_int <- exp(model$mean[8])
+#Japanese Emperor
+je_int <- exp(model$mean[9])
+#US Pres
+us_int <- exp(model$mean[10])
 ```
 
-In Table 2, we summarize the multiplicative and percent changes in the mean survival time resulting from a decade increase in birth year for each leader type. Recall that $time$ is a scaled and shifted version of birth year that is measured in centuries. We thus consider the changes resulting from a 0.1 unit increase in $time$ in order to make interprations on a decade scale. These values indicate that, barring the Dalai Lamas, as a leader's birth year increases by a decade, their expected survival time increases as well. For U.S. Presidents, a decade increase in birth year results in a 1.12% expected percentage increase in surival time- the highest across groups. For Popes, Chinese Emperors, and Japanese Emperors, the expected increases are slightly more modest, hovering around 0.3%. In contrast, the expect survival time change for a decade increase in birth year for Dalai Lamas is -1.52%. This negative prediction is consistent with the string of successive early deaths among these leaders that occurred in the 19th century.
+In Table 2, we summarize the multiplicative and percent changes in the mean survival time resulting from a decade increase in birth year for each leader type. Recall that $time$ is a scaled and shifted version of birth year that is measured in centuries. We thus consider the changes resulting from a 0.1 unit increase in $time$ in order to make interprations on a decade scale. These values indicate that, barring the Dalai Lamas, as a leader's birth year increases by a decade, their expected survival time increases as well. For U.S. Presidents, a decade increase in birth year results in a `r round(us_percent_difference[2], digits = 2)` expected percentage increase in surival time- the highest across groups. For Popes, Chinese Emperors, and Japanese Emperors, the expected increases are slightly more modest, hovering around 0.3%. In contrast, the expect survival time change for a decade increase in birth year for Dalai Lamas is `r round(dl_percent_difference[2], digits = 2)`. This negative prediction is consistent with the string of successive early deaths among these leaders that occurred in the 19th century.
+
 
 In this sense, the relationship between birth year and survival time is somewhat dependent on leadership type. As Chinese Emperors, Japanese Emperors, and Popes exhibit very similar increases in expected survival, it seems that their respective leadership types do not play a strong role in determining the relationship between birth year and survival. However, when considering U.S. Presidents and Dalai Lamas, we see that the effect of birth year on survival is strongly influenced by type of leadership.
 
 Interpreting the individual effect of $type$ on survival time is not as straightforward as understanding its interaction with $time$. However, if we choose certain values of $time$ to condition on, we can extract meaningful insights. Consider leaders with a birth year corresponding to the mean $time$ value in the dataset, which is 1674. For these leaders, we can quantify the multiplicative change that occurs in mean survival time in relation to the baseline level of popes. 
 
-Let $pope_i$ represent a Pope born in the mean birth year of the dataset. Then, a Chinese Emperor with the same birth year has an expected predicted survival time that is 0.74 times as much as $pope_i$. Similarly, a Dalai Lama born in the same year will be expected to survive only 0.69 times as long as $pope_i$. For a Japanese emperor of mean birth year, expected survival time is 0.88 times that of $pope_i$. And finally, a U.S. President has an expected survival time that is 0.91 times as much of $pope_i$. Calculations for these values are included in the Appendix. These values indicate that, among all leaders with the mean birth year of the dataset, popes have the largest mean survival time. However, this statement does not generalize across birth year.
+Let $pope_i$ represent a Pope born in the mean birth year of the dataset. Then, a Chinese Emperor with the same birth year has an expected predicted survival time that is `r round(ce_int, 2)` times as much as $pope_i$. Similarly, a Dalai Lama born in the same year will be expected to survive only `r round(dl_int, 2)` times as long as $pope_i$. For a Japanese emperor of mean birth year, expected survival time is `r round(je_int, 2)` times that of $pope_i$. And finally, a U.S. President has an expected survival time that is `r round(us_int, 2)` times as much of $pope_i$. Calculations for these values are included in the Appendix. These values indicate that, among all leaders with the mean birth year of the dataset, popes have the largest mean survival time. However, this statement does not generalize across birth year.
 
 ## Posterior Predictive Distribution 
 
@@ -852,7 +876,7 @@ al_index = alive_leaders %>%
 al_names = alive_leaders %>% pull(Name) %>% str_remove_all("\\s*\\([^\\)]+\\)")
 al_cur_age = alive_leaders %>% pull(Age.Event)
 al_type = alive_leaders %>% pull(Type)
-Bayesian_Leaders_output$BUGSoutput$summary[c("survival_Francis",
+alive_leaders_post = Bayesian_Leaders_output$BUGSoutput$summary[c("survival_Francis",
                                              "survival_Obama",
                                              "survival_DL",
                                              "survival_Naruhito",
@@ -869,7 +893,9 @@ Bayesian_Leaders_output$BUGSoutput$summary[c("survival_Francis",
          #   type == "UsPres" ~  "US President", 
          #   TRUE ~ as.character(type))
   ) %>% 
-  mutate_if(is.numeric, round, digits=3) %>% 
+  mutate_if(is.numeric, round, digits=3) 
+
+alive_leaders_post %>% 
   mutate("95% CI" = paste0("(", `2.5%`,", ", `97.5%`, ")")) %>% 
   select(rowname, type,  cur_age, mean, `50%`, sd, "95% CI") %>% 
   kableExtra::kbl(booktabs = TRUE, caption = "Posterior Predictions for Lifespans of Living Leaders, with 95\\% Credible Intervals (CI)", 
@@ -881,7 +907,7 @@ Bayesian_Leaders_output$BUGSoutput$summary[c("survival_Francis",
   add_header_above(c(" " = 3, "Posterior Values" = 4))  
 ```
 
-Now we will address the research objective of providing posterior predictions of the lifespans of living leaders. Table 3 displays these point and interval predictions. Since we set the upper bound of the truncated Weibull distribution to 110 years, we expect the upper tails of the 95% credible intervals to be near 110 years. This is the case for all the leaders except the 14th Dalai Lama, whose 97.5% quantile is 99.16 years. As previously discussed, there was a string of early deaths among Dalai Lamas in the 19th century, which may have impacted the posterior predictions for the 14th Dalai Lama. Furthermore, Dalai Lamas represent the smallest group of leadership type ($n = 14$), which limits these predictions. 
+Now we will address the research objective of providing posterior predictions of the lifespans of living leaders. Table 3 displays these point and interval predictions. Since we set the upper bound of the truncated Weibull distribution to 110 years, we expect the upper tails of the 95% credible intervals to be near 110 years. This is the case for all the leaders except the 14th Dalai Lama, whose 97.5% quantile is `r alive_leaders_post %>% filter(rowname == "14th Dalai Lama") %>% pull("97.5%")` years. As previously discussed, there was a string of early deaths among Dalai Lamas in the 19th century, which may have impacted the posterior predictions for the 14th Dalai Lama. Furthermore, Dalai Lamas represent the smallest group of leadership type ($n = 14$), which limits these predictions. 
 
 ## Applications for Select Leaders 
 
