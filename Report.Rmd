@@ -110,7 +110,7 @@ Bayesian_Leaders_output <- rjags_model
 
 # Introduction 
 
-Because world leaders have measurable influence in politics, even beyond their election terms, it is critical to explore their life expectancies. Using data from 177 world leaders, including Roman Catholic Popes, U.S. Presidents, Chinese and Japanese Emperors, and Dalai Lamas, we model the leaders’ life expectancies using a Weibull distribution within a Bayesian framework. Our goal is to ultimately explore relationships with year of birth and type of leadership when predicting lifespan, as well as how dependent the relationships are on the type of leadership. We contend that, in providing point and interval predictions of the lifespans of living leaders, along with predictive distributions, we can make empirical comparisons between the survival times of world leaders. Our work extends the investigation from Stander et al. (2018) regarding post-election survival times of Popes, which urged researchers to consider other world leaders in their approach to understand survival analysis. 
+Because world leaders have measurable influence in politics, even beyond their election terms, it is critical to explore their life expectancies. Using data from 177 world leaders, including Roman Catholic Popes, U.S. Presidents, Chinese and Japanese Emperors, and Dalai Lamas, we model the leaders’ life expectancies using a Weibull distribution within a Bayesian framework. Our goal is to ultimately explore relationships with year of birth and type of leadership when predicting lifespan, as well as how dependent the relationships are on the type of leadership. We contend that, in providing point and interval predictions of the lifespans of living leaders, along with predictive distributions, we can make empirical comparisons between the survival times of world leaders. Our work extends the investigation from Stander et al. (2018) [1] regarding post-election survival times of Popes, which urged researchers to consider other world leaders in their approach to understand survival analysis. 
 
 # Data 
 
@@ -144,7 +144,7 @@ ggplot(leaders, aes(x=time, y=Age.Event, shape=Type, color=Type)) +
   ylab("Lifespan (yrs)") + xlab("Transformed Birth Year") +geom_smooth(method = "lm", se=FALSE)
 ```
 
-It appears as though lifespan over time has increased at similar rates across Chinese Emperors, Japanese Emperors, US Presidents, and Popes. However, for the Dalai Lamas, the plot indicates that lifespan has decreased over time. This unexpected trend can be attributed to the untimely demise of several Dalai Lamas in the 19th and 20th centuries, with causes of death ranging from common illnesses to ceiling collapses [1] . 
+It appears as though lifespan over time has increased at similar rates across Chinese Emperors, Japanese Emperors, US Presidents, and Popes. However, for the Dalai Lamas, the plot indicates that lifespan has decreased over time. This unexpected trend can be attributed to the untimely demise of several Dalai Lamas in the 19th and 20th centuries, with causes of death ranging from common illnesses to ceiling collapses [5] . 
 
 # Methodology
 
@@ -170,7 +170,7 @@ where log is base $e$.
 
 In Model 1.1, $i$ corresponds to each world leader and $T_i$ refers to their life expectancy. $time_i$ is the covariate representing birth year, measured in the number of centuries after 1300 that each leader was born, while $type_i$ refers to the individual's type of leadership. The reference level $j = 1$ for the $type$ covariate is Pope, as it forms the largest category ($n=63$). The remaining levels $j = 2, 3, 4, 5$ correspond to Chinese Emperor, Dalai Lama, Japanese Emperor, and U.S. President respectively. The third term in the linear combination of covariates represents an interaction effect between $type$ and $time$. This interaction is used to account for  differences in the relationship between survival time and birth year that may exist across leadership types. 
 
-To account for censored observations, we sample $T_i$ from a truncated distribution, $T_i \sim  \,Weibull(r,\, \mu_i)\,T(present\_age_i, \, upper\_age)$. $present\_age_i$ is 0 for a leader who is deceased and their current age if they are still alive. For deceased leaders, the lower bound of 0 prevents the model from making assumptions about the lifespan of that leader. For leaders who are currently alive, it ensures the model does not sample a survival time that is less than their current age. We set the $upper_age$ to be 110. We selected this upper bound due to the fact that the United Nations predicts that only 0.0074% of the world's population will celebrate their 100th birthday and become a centenarian(https://population.un.org/wpp/Download/Standard/Population/). Of this small percentage of people, the Gerontology Research Group estimates only 0.15% to 0.25% will reach the age of 110(http://supercentenarian-research-foundation.org/TableE.aspx). 
+To account for censored observations, we sample $T_i$ from a truncated distribution, $T_i \sim  \,Weibull(r,\, \mu_i)\,T(present\_age_i, \, upper\_age)$. $present\_age_i$ is 0 for a leader who is deceased and their current age if they are still alive. For deceased leaders, the lower bound of 0 prevents the model from making assumptions about the lifespan of that leader. For leaders who are currently alive, it ensures the model does not sample a survival time that is less than their current age. We set the $upper_age$ to be 110. We selected this upper bound due to the fact that the United Nations predicts that only 0.0074% of the world's population will celebrate their 100th birthday and become a centenarian [2]. Of this small percentage of people, the Gerontology Research Group estimates only 0.15% to 0.25% will reach the age of 110 [3]. 
 
 When modeling survival time $T_i$ in this manner, it can be shown that the log mean of $T_i$ is a linear function of the covariates of interest. Specifically, 
 
@@ -556,10 +556,7 @@ There are several limitations in our analysis. These include, but are not limite
 2. World Population Prospects - Population Division. (n.d.). Retrieved August 31, 2020, from https://population.un.org/wpp/Download/Standard/Population/
 3. Supercentenarian Research Foundation. (n.d.). Retrieved August 31, 2020, from http://supercentenarian-research-foundation.org/TableE.aspx
 4. Ruggeri, A. (2018, October 2). Do we really live longer than our ancestors? Retrieved August 31, 2020, from https://www.bbc.com/future/article/20181002-how-long-did-ancient-people-live-life-span-versus-longevity
-
-
-#########################
-where $\beta_0$ corresponds with the intercept, $\beta_1$ is the coefficient corresponding to `Time`, $\beta_{type} = (0, \beta_2, \beta_3, \beta_4, \beta_5)$ is the vector of coefficients corresponding to leadership types of Popes, Chinese Emperors, Dalai Lamas, Japanese Emperors, and US Presidents respectively, and $\beta_{type*time} = (0, \beta_6, \beta_7, \beta_8, \beta_9)$ is the vector of coefficient corresponding  to the interaction between `Time` and leadership type.
+5. DALAI LAMA- A SHORT LIVED POSITION. (n.d.). Retrieved August 31, 2020, from https://www.tripsatasia.com/newsletter-articles/dalai-lama-a-short-lived-position
 
 
 
