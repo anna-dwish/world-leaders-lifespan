@@ -111,7 +111,10 @@ Bayesian_Leaders_output <- rjags_model
 
 # Introduction 
 
-Because world leaders have measurable influence in politics, even beyond their election terms, it is critical to explore their life expectancies. Using data from 177 world leaders, including Roman Catholic Popes, U.S. Presidents, Chinese and Japanese Emperors, and Dalai Lamas, we model the leaders’ life expectancies using a Weibull distribution within a Bayesian framework. Our goal is to ultimately explore relationships with year of birth and type of leadership when predicting lifespan, as well as how dependent the relationships are on the type of leadership. We contend that, in providing point and interval predictions of the lifespans of living leaders, along with predictive distributions, we can make empirical comparisons between the survival times of world leaders. Our work extends the investigation from Stander et al. (2018) [1] regarding post-election survival times of Popes, which urged researchers to consider other world leaders in their approach to understand survival analysis. 
+World leaders have measurable influence in politics, even beyond their election terms. For this reason, it is critical to explore their life expectancies. Extending the investigation from Stander et al. (2018), we analyze the survival times of 177 world leaders, including Roman Catholic Popes, U.S. Presidents, Chinese and Japanese Emperors, and Dalai Lamas. We propose a Weibull distribution for modelling the lifespan of these world leaders and provide a mechanism for predicting their survival times within a Bayesian framework. 
+
+Our goal is to ultimately determine how year of birth and type of leadership are related to a leader's life span. Furthermore, we seek to understand if the relationship between year of birth and lifespan is dependent on type of leadership. Finally, we will provide point and interval predictions of the lifespans of living leaders, along with predictive distributions to make comparative statements about future survival times. 
+
 
 # Data 
 
