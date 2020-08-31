@@ -27,6 +27,8 @@ pkgTest("tidyverse")
 pkgTest("knitr")
 pkgTest("kableExtra")
 pkgTest("stringr")
+pkgTest("coda")
+pkgTest("tidybayes")
 ```
 
 ```{r include=FALSE}
@@ -40,10 +42,11 @@ library(tidyverse)
 library(knitr)
 library(kableExtra)
 library(stringr)
-
+library(coda)
+library(tidybayes)
 load("Leaders.Rdata")
 leaders <- as.data.frame(leaders)
-head(leaders)
+#head(leaders)
 prev_date <- as.Date("31/07/2020",format="%d/%m/%Y")
 current_date <- as.Date("31/08/2020",format="%d/%m/%Y")
 
@@ -75,6 +78,13 @@ leaders <- leaders %>%
 alive = c("Barack Obama","Francis","14th Dalai Lama (Tenzin Gyatso)", "Naruhito (Emperor Reiwa)")
 filtered_leaders = leaders %>% 
   filter(!Name %in% alive)
+
+load("leaders_model_r_1_beta_1.Rdata")
+Bayesian_Leader_output <- rjags_model
+```
+
+
+```{r out.width="50%"}
 # load("leaders_model_r_1e-1_beta_100.Rdata")
 # Bayesian_Leaders_V3b <- rjags_model
 # bugs1 <- Bayesian_Leaders_V3b$BUGSoutput$summary %>% 
@@ -98,7 +108,7 @@ filtered_leaders = leaders %>%
 #          sd = ifelse((mean == "(Reference)" & sd == 0),"", sd),
 #          `95% CI` = ifelse((mean == "(Reference)" & sd == ""), "", `95% CI`),
 #          Rhat = ifelse((mean == "(Reference)" & sd == ""), "", Rhat)) %>% 
-#   kableExtra::kbl(booktabs = T, caption = "$\\hat\\beta$s obtained with Model, with 95\\% Confidence Intervals (CI)",
+#   kableExtra::kable(booktabs = T, caption = "$\\hat\\beta$s obtained with Model, with 95\\% Confidence Intervals (CI)",
 #                   col.names = c("Parameter", "Estimate", "Std. Deviation", "95% CI", "Rhat")) %>% 
 #   #kable_styling(font_size = 10) %>% 
 #   
@@ -189,7 +199,7 @@ log(mean[T_i]) =  \alpha_0 + \alpha_1\ time_i + \sum_{j=2}^{5} \alpha_{2j} & \ I
 $$
 where $\alpha_j = \frac{\beta_j}{r}$ for all j. This parameterization will be useful in making meaningful interpretation. When exponentiating both sides, for example, we can see that an increase in one unit of $time_i$ (which in our context, would correspond to an increase in century) results in a multiplicative change  of $exp(\alpha_1)$ in the mean survival time. This type of interpretation will be used later in this paper in order to properly quantify the effects of $time$ and $type$ on lifespan. 
 
-## Choice of Prior Distributions
+## Choice of Prior Distributions - OLD 
 
 In our initial model, we adopted the following prior distributions for $r, \beta_1, \beta_{2j}$ and $\beta_{3j}$: 
 
@@ -205,7 +215,20 @@ Though there does not exist a strong body of literature to inform these priors, 
 
 Our prior on r, the positive scale parameter of the Weibull distribution, was informed by the context of the study. R values between 0 and 1 indicate a decreasing rate of failure over time, while those greater represent an increasing rate of failure. It can be assumed that the rate of death for world leaders increases with age-- equivalently, an r value greater than 1. This warranted an informative Gamma (25, 0.2) prior with mean 5 and variance 1, reflecting  our certainty of R being a value greater than 1. 
 
+## Choice of Prior Distributions
 
+In our initial model, we adopted the following prior distributions for $r, \beta_1, \beta_{2j}$ and $\beta_{3j}$, for  $j = 2, 3, 4, 5$: 
+
+$$
+\begin{aligned}
+&r \sim  \Gamma(25, 0.2)\\ 
+\beta_0,\ \beta_1,\ &\beta_{2j},\ \beta_{3j} \sim N(0, 1), \ \ \ \  j = 2, 3, 4, 5
+\end{aligned}
+$$
+
+Though there does not exist a strong body of literature to inform these priors, each of our choices resulted from research and consideration of context. For the prior on the $B_1$, the coefficient corresponding to the $time$ covariate, we decided to use a $N(0, 1)$ prior. We were motivated to explore this zero-centered, low variance prior due to a study [] citing that lifespan has not significantly changed over the past several centuries. Thus, this prior  reflected our beliefs that time is not a significant determinant of survival. For the priors on $\beta_{2j}$, $j = 2,3,4, 5$, which are coefficients for each of the 4 levels of $type$ (Chinese Emperor, Dalai Lama, Japanese Emperor, and U.S. President), we observed that each leader type is tied to a region. Our research on lifespans across these various regions [1] indicates that they are roughly comprable, informing a $N(0,1)$ prior for each leader coefficient. We similarly chose a $N(0,1)$ prior for the interaction coefficients $\beta_{3j}$, $j = 2,3,4,5$. Here, we did not have a strong enough belief that the coefficients were non-zero and thus chose the same prior as that of the main effects.
+
+Our prior on r, the positive scale parameter of the Weibull distribution, was informed by the context of the study. R values between 0 and 1 indicate a decreasing rate of failure over time, while those greater than 1 represent an increasing rate of failure. As can be assumed that the rate of death for world leaders increases with age, we assume an r value greater than 1. This warranted an informative $\Gamma(25, 0.2)$ prior with mean 5 and variance 1, reflecting  our certainty of R being a value greater than 1.
 
 ## Model Validation
 
@@ -216,8 +239,6 @@ We fit our initial model on the data to obtain posterior values for our paramete
 ## Summary of Parameters (AND interpretations)
 
 ```{r}
-load("leaders_model_r_25_2e-1_beta_1.Rdata")
-Bayesian_Leader_output <- rjags_model
 post_summary_df <- Bayesian_Leader_output$BUGSoutput$summary %>% 
   as.data.frame() 
 rows <- c("r", "beta_0", "beta_1", 
@@ -240,7 +261,7 @@ post_summary_df %>%
          `95% CI` = ifelse((mean == "(Reference)" & sd == ""), "", `95% CI`)#,
          #Rhat = ifelse((mean == "(Reference)" & sd == ""), "", Rhat)
   ) %>% 
-  kableExtra::kbl(booktabs = T, caption = "Parameters obtained with Model 1.1, with 95\\% Credible Intervals (CI)",
+  kableExtra::kable(booktabs = T, caption = "Parameters obtained with Model 1.1, with 95\\% Credible Intervals (CI)",
                   col.names = c("Parameter", "Mean", "Std. Dev.", "95% CI"#, "Rhat"
                   )) %>% 
   #kable_styling(font_size = 10) %>% 
@@ -258,7 +279,17 @@ ADD TABLE OF INTERPRETATIONS
 
 We perform several model diagnostics to assess model integrity. Traceplots and $\hat{R}$[1] (maybe add source for GElman and Rubin) suggest that the chains for each parameter have converged and mix well, and autocorrelation plots indicate a low correlation between the simulations. (maybe include plots, maybe not)
 
+```{r}
+tidybayes::gather_draws(Bayesian_Leader_output %>% coda::as.mcmc(), r, beta_0, beta_1) %>%  
+  # tidyr::gather(key, value, "beta_0", "beta_1", "r", -i) %>% 
+  ggplot() + 
+  geom_line(aes(x = .iteration, y = .value, color = .variable)) + 
+  facet_grid(.variable~., scales = "free_y")
+```
+
 ### Convergence & Autocorrelation Plots 
+
+We examine traceplots for each of the parameter values. A traceplot with random scatter around a mean value indicates that the model has converged. $\hat{R}$ provides an estimate of convergence based on the variance of an estimated parameter between chains, and the variance wtihin a chain. The closer the $\hat{R}$ value to 1, the better the model has converged.   
 
 ### Sensitivity Analysis 
 
@@ -334,7 +365,7 @@ sensitivity_df("beta_1")  %>%
 #   mutate_if(is.numeric, round, digits=3) %>% 
 #   mutate("95% CI" = paste0("(", `2.5%`,", ", `97.5%`, ")")) %>% 
 #   select(rowname, mean, `50%`, sd, "95% CI") %>% 
-#   kableExtra::kbl(booktabs = T, caption = "$\\hat\\beta$s obtained with Model, with 95\\% Credible Intervals (CI)",
+#   kableExtra::kable(booktabs = T, caption = "$\\hat\\beta$s obtained with Model, with 95\\% Credible Intervals (CI)",
 #                   col.names = c("Leader", "Mean", "Median", "Std. Deviation", "95% CI"
 #                   )) 
 
@@ -373,7 +404,7 @@ Bayesian_Leader_output$BUGSoutput$summary[c("survival_Francis",
   mutate_if(is.numeric, round, digits=3) %>% 
   mutate("95% CI" = paste0("(", `2.5%`,", ", `97.5%`, ")")) %>% 
   select(rowname, type,  cur_age, mean, `50%`, sd, "95% CI") %>% 
-  kableExtra::kbl(booktabs = TRUE, caption = "Posterior Predictions for Lifespans of Living Leaders", 
+  kableExtra::kable(booktabs = TRUE, caption = "Posterior Predictions for Lifespans of Living Leaders", 
                   col.names = c("Leader", "Type", "Current Age", "Mean", "Median", "Std. Dev.", "95% CI")) %>% 
   kable_styling(position = "center") %>%  
   row_spec(0, bold = TRUE) %>% 
@@ -384,6 +415,31 @@ Bayesian_Leader_output$BUGSoutput$summary[c("survival_Francis",
 ```
 
 ## Answering Questions 
+
+```{r}
+# probability that the 14th Dalai Lama will have a longer lifespan than Pope Francis
+
+survival_DL <- Bayesian_Leader_output$BUGSoutput$sims.matrix[,"survival_DL"]
+survival_Francis <- Bayesian_Leader_output$BUGSoutput$sims.matrix[,"survival_Francis"]
+
+
+DL_vs_francis <- survival_DL - survival_Francis
+diffData <- as.data.frame(DL_vs_francis)
+ggplot(diffData, aes(x = DL_vs_francis, y = ..density..)) + geom_histogram(binwidth = 3) + labs(x = "Difference in Predicted Survival Times between Dalai Lama and rancisPredictive Probability density", title = "Figure 4") 
+
+
+#probability that Obama will live longer thatn Naruhito
+
+survival_Obama <- Bayesian_Leader_output$BUGSoutput$sims.matrix[,"survival_Obama"]
+survival_Naruhito <- Bayesian_Leader_output$BUGSoutput$sims.matrix[,"survival_Naruhito"]
+
+mean(survival_Obama > survival_Naruhito)
+med <- median(survival_Obama > survival_Naruhito)
+
+Obama_vs_naruhito <- survival_Obama - survival_Naruhito
+diffData <- as.data.frame(Obama_vs_naruhito)
+ggplot(diffData, aes(x = Obama_vs_naruhito, y = ..density..)) + geom_histogram(binwidth = 3) + labs(x = "Difference in Predicted Survival Times between Obama and Naruhito", y = "Predictive Probability density", title = "Figure 4") 
+```
 
 # Conclusion & Limitations 
 
