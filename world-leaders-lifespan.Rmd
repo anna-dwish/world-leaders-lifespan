@@ -709,70 +709,56 @@ ggplot(Obama_vs_naruhito_data, aes(x = Obama_vs_naruhito, y = ..density..)) + ge
 ```
 
 
+#Interaction Interpretation Table
 
 ```{r}
-#interpretation of parameters- split into two tables
+model <- Bayesian_Leaders_output$BUGS$summary %>% as.data.frame()
 
-#INTERPRETATIONS OF INTERACTION EFFECTS
-bugs_for_interpretation <- Bayesian_Leaders_output$BUGSoutput$summary %>% 
-  as.data.frame()
-time_coeff_mean <- bugs_for_interpretation["beta_1",][,"mean"]
-intercept_mean <- bugs_for_interpretation["beta_0",][,"mean"]
-r_mean <- bugs_for_interpretation["r",][,"mean"]
+#Pope
+pope_alpha <- c(model$`2.5%`[2], model$mean[2], model$`97.5%`[2])
+pope_multiplicative_difference <- exp(0.1*pope_alpha)
+pope_percent_difference <- 100*(pope_multiplicative_difference - 1)
 
-
-#Popes
-multiplicative_scale_factor_birthyear_pope <- exp(time_coeff_mean*(-1)/r_mean)
-percent_increase_birthyear_pope <- (multiplicative_scale_factor_birthyear_pope-1)*100
 
 #Chinese Emperors
-beta_int_2_coeff_mean <- bugs_for_interpretation["beta_int[2]",][,"mean"]
-multiplicative_scale_factor_birthyear_chinese_emperor <- exp((time_coeff_mean + beta_int_2_coeff_mean) *(-1)/r_mean)
-percent_increase_birthyear_chinese_emperor <- (multiplicative_scale_factor_birthyear_chinese_emperor-1)*100
+ce_alpha <- c(model$`2.5%`[2] + model$`2.5%`[3], model$mean[2] + model$mean[3], model$`97.5%`[2] + model$`97.5%`[3])
+ce_multiplicative_difference <- exp(0.1*ce_alpha)
+ce_percent_difference <- 100*(ce_multiplicative_difference - 1)
 
-#Dalai Lamas
-beta_int_3_coeff_mean <- bugs_for_interpretation["beta_int[3]",][,"mean"]
-multiplicative_scale_factor_birthyear_DL <- exp((time_coeff_mean + beta_int_3_coeff_mean) *(-1)/r_mean)
-percent_increase_birthyear_DL <- (multiplicative_scale_factor_birthyear_DL-1)*100
+#Dalai Lama
+dl_alpha <- c(model$`2.5%`[2] + model$`2.5%`[4], model$mean[2] + model$mean[4], model$`97.5%`[2] + model$`97.5%`[4])
+dl_multiplicative_difference <- exp(0.1*dl_alpha)
+dl_percent_difference <- 100*(dl_multiplicative_difference - 1)
 
-#Japanese Emperors
-beta_int_4_coeff_mean <- bugs_for_interpretation["beta_int[4]",][,"mean"]
-multiplicative_scale_factor_birthyear_japanese_emperor <- exp((time_coeff_mean + beta_int_4_coeff_mean) *(-1)/r_mean)
-percent_increase_birthyear_japanese_emperor <- (multiplicative_scale_factor_birthyear_japanese_emperor-1)*100
+#Japanese Emperor
 
-#US President
-beta_int_5_coeff_mean <- bugs_for_interpretation["beta_int[5]",][,"mean"]
-multiplicative_scale_factor_birthyear_us_pres <- exp((time_coeff_mean + beta_int_5_coeff_mean) *(-1)/r_mean)
-percent_increase_birthyear_us_pres <- (multiplicative_scale_factor_birthyear_us_pres-1)*100
+je_alpha <- c(model$`2.5%`[2] + model$`2.5%`[5], model$mean[2] + model$mean[5], model$`97.5%`[2] + model$`97.5%`[5])
+je_multiplicative_difference <- exp(0.1*je_alpha)
+je_percent_difference <- 100*(je_multiplicative_difference - 1)
 
-scale_factors <- c(multiplicative_scale_factor_birthyear_pope, multiplicative_scale_factor_birthyear_chinese_emperor, multiplicative_scale_factor_birthyear_DL, multiplicative_scale_factor_birthyear_japanese_emperor, multiplicative_scale_factor_birthyear_us_pres)
+#US Presidents
 
-percent_increase <- c(percent_increase_birthyear_pope, percent_increase_birthyear_chinese_emperor, percent_increase_birthyear_DL, percent_increase_birthyear_japanese_emperor, percent_increase_birthyear_us_pres)
+us_alpha <- c(model$`2.5%`[2] + model$`2.5%`[6], model$mean[2] + model$mean[6], model$`97.5%`[2] + model$`97.5%`[6])
+us_multiplicative_difference <- exp(0.1*us_alpha)
+us_percent_difference <- 100*(us_multiplicative_difference - 1)
 
-leader_type <- c("Pope", "Chinese Emperor", "Dalai Lama", "Japanese Emperor", "US President")
 
-scale_and_percent <- data.frame(leader_type, scale_factors, percent_increase)
-scale_and_percent 
+Type <- c("Pope", "Chinese Emperor", "Dalai Lama", "Japanese Emperor", "US President")
+Multiplicative_Scale_Factor <- data.frame(Type, t(data.frame(pope_multiplicative_difference, ce_multiplicative_difference, dl_multiplicative_difference, je_multiplicative_difference, us_multiplicative_difference))) 
+Percent_Difference <- data.frame(Type, t(data.frame(pope_percent_difference, ce_percent_difference, dl_percent_difference, je_percent_difference, us_percent_difference)))
 
-```
-
-The following code creates a QQ plot and residual plots to evalutate the effectivness of the model in predicting lifespans for the leaders in this dataset. The first residual plot shows the residuals across time to see how well the model is performing for leaders born in different times, while the second residual plot groups the residuals by index, i.e. leadership type, in order to evaluate if the model is accurate across different leadership types.
-
-```{r}
-modelOutput <- Bayesian_Leaders_output$BUGSoutput$summary %>% as.data.frame()
-survivalPredicted <- modelOutput[211:383, ] %>% select("mean", "sd", "2.5%", "50%", "97.5%")
-#creating dataframe with useful information (including prediction residuals and standardized residuals)
-leader <- filtered_leaders$Name
-censored_value <- as.factor(filtered_leaders$Censored)
-actual_survival <- filtered_leaders$Age.Event
-time <- filtered_leaders$time
-survivalPredicted <- survivalPredicted %>%
-  mutate(actual = actual_survival) %>%
-  mutate(name = leader) %>%
-  mutate(Censored = censored_value) %>%
-  mutate(Standardized_Residual = (actual-mean)/sd) %>%
-  mutate(Residual = actual-mean) %>%
-  mutate(time_of_birth = time)
+bind_rows(Multiplicative_Scale_Factor,
+          Percent_Difference) %>% 
+  tibble::rownames_to_column() %>% 
+  mutate_if(is.numeric, round, digits=3) %>% 
+  mutate(Mean = X2, 
+         `95% CI` = paste0("(", X1, ", ", X3, ")")) %>% 
+  select(-(X1:X3), -rowname) %>% 
+  kableExtra::kable(booktabs = TRUE, 
+                    caption = "Posterior Predictions for Lifespans of Living Leaders", 
+                    col.names = c("Leadership Type", "Mean", "95% CI")) %>% 
+  pack_rows("Multiplicative Difference", 1,5) %>% 
+  pack_rows("Percent Difference", 6,10)
 ```
 
 
