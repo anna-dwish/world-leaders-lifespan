@@ -34,14 +34,10 @@ pkgTest("grid")
 pkgTest("readr")
 pkgTest("dplyr")
 pkgTest("ggplot2")
-pkgTest("Epi")
-pkgTest("knitr")
 pkgTest("lubridate")
 pkgTest("R2jags")
 pkgTest("tidyr")
-pkgTest("kableExtra")
 pkgTest("tibble")
-pkgTest("tidybayes")
 ```
 
 
@@ -61,14 +57,10 @@ library(grid)
 library(readr)
 library(dplyr)
 library(ggplot2)
-library(Epi)
-library(knitr)
 library(lubridate)
 library(R2jags)
 library(tidyr)
-library(kableExtra)
 library(tibble)
-library(tidybayes)
 ```
 
 ```{r }
