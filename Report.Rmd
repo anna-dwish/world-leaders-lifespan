@@ -426,26 +426,29 @@ We will address our second goal of providing posterior predictions of the lifesp
 # probability that the 14th Dalai Lama will have a longer lifespan than Pope Francis
 
 survival_DL <- Bayesian_Leaders_output$BUGSoutput$sims.matrix[,"survival_DL"]
-survival_Francis <- Bayesian_Leaders_output$BUGSoutput$sims.matrix[,"survival_Francis"]
-
+survival_Francis <-Bayesian_Leaders_output$BUGSoutput$sims.matrix[,"survival_Francis"]
 
 DL_vs_francis <- survival_DL - survival_Francis
-diffData <- as.data.frame(DL_vs_francis)
-ggplot(diffData, aes(x = DL_vs_francis, y = ..density..)) + geom_histogram(binwidth = 3) + labs(x = "Difference in Predicted Survival Times between Dalai Lama and rancisPredictive Probability density", title = "Figure 4") 
+DL_vs_francis_data <- as.data.frame(DL_vs_francis)
+ggplot(DL_vs_francis_data, aes(x = DL_vs_francis, y = ..density..)) + geom_histogram(binwidth = 3) + labs(x = "Difference in Predicted Survival Times (Dali Lama - Francis)", y = "Predictive Probability density", title = "Distribution of Difference in Predicted Survival Times for Dali Lama and Pope Francis") +  theme_light() + geom_vline(xintercept=mean(DL_vs_francis), color = "blue")
+
+```
+
+In observing the posterior predictive samples for the survival times of the 14th Dalai Lama and Pope Francis, we note that only in  `100*mean(survival_DL>survival_Francis)`% of the simulated samples is the Dalai Lama is predicted to have a longer lifespan. Thus, there is only a `mean(survival_DL>survival_Francis)` probability that the 14th Dalai Lama will have a longer lifespan than Pope Francis. In examining the posterior distribution of the differences between the predicted survival times of the two leaders (Dalai Lama - Francis), we note a mean of `mean(DL_vs_francis)` (shown by the blue line) and median of `median(DL_vs_francis)`, both well below zero. This indicates that, on average, the posterior predictions for the survival time of 14th Dalai Lama are `-1*mean(DL_vs_francis)` years below that of Pope Francis. 
 
 
+```{r}
 #probability that Obama will live longer thatn Naruhito
 
 survival_Obama <- Bayesian_Leaders_output$BUGSoutput$sims.matrix[,"survival_Obama"]
 survival_Naruhito <- Bayesian_Leaders_output$BUGSoutput$sims.matrix[,"survival_Naruhito"]
 
-mean(survival_Obama > survival_Naruhito)
-med <- median(survival_Obama > survival_Naruhito)
-
 Obama_vs_naruhito <- survival_Obama - survival_Naruhito
-diffData <- as.data.frame(Obama_vs_naruhito)
-ggplot(diffData, aes(x = Obama_vs_naruhito, y = ..density..)) + geom_histogram(binwidth = 3) + labs(x = "Difference in Predicted Survival Times between Obama and Naruhito", y = "Predictive Probability density", title = "Figure 4") 
+Obama_vs_naruhito_data <- as.data.frame(Obama_vs_naruhito)
+ggplot(Obama_vs_naruhito_data, aes(x = Obama_vs_naruhito, y = ..density..)) + geom_histogram(binwidth = 3) + labs(title ="Distribution of Difference in Predicted Survival Times for President Obama and Emperor Naruhito" ,x = "Difference in Predicted Survival Times (Obama - Naruhito)", y = "Predictive Probability density")  +  theme_light() + geom_vline(xintercept=mean(Obama_vs_naruhito), color = "blue") 
 ```
+
+In observing the posterior predictive samples for the survival times of the President Obama and Emperor Naruhito, we note that in  `100*mean(survival_Obama > survival_Naruhito)` % of the simulated samples,  President Obama is predicted to have a longer lifespan. Consequently, there is  around a `mean(survival_Obama > survival_Naruhito)` probability that Obama  will have a longer lifespan than Naruhito. In examining the posterior distribution of the differences between the predicted survival times of the two leaders (Obama - Naruhito), we note a quite normal distribution with a mean of `mean(DL_vs_francis)`(shown by the blue line) and median of `median(DL_vs_francis)`, both close to zero. This indicates that, on average, the posterior predictions for the survival time of President Obama are only `mean(DL_vs_francis)` years above that of Emperor Naruhito. 
 
 ## Answering Questions 
 
