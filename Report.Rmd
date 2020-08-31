@@ -49,6 +49,7 @@ pkgTest("tidybayes")
 knitr::opts_chunk$set(echo = FALSE,
                       message = FALSE,
                       warning = FALSE)
+ggplot2::theme_set(new = theme_bw())
 library(tidyverse)
 library(knitr)
 library(kableExtra)
@@ -198,7 +199,7 @@ Our prior on r, the positive scale parameter of the Weibull distribution, was in
 
 ## Model Validation
 
-We fit our initial model on the data to obtain posterior values for our parameters $r ,\beta_0, \beta_1, \beta_{2j}$ and $\beta_{3j}$. We perform  model diagnostics to ensure our parameter values have converged, which suggested that 250,000 simulated values were sufficient. Finally, we performed sensitivity analysis.
+We fit our initial model on the data to obtain posterior values for our parameters $r ,\beta_0, \beta_1, \beta_{2j}$ and $\beta_{3j}$. We check model diagnostics to ensure our parameter values have converged, which suggested that 250,000 simulated values were sufficient. Finally, we performed sensitivity analysis.
 
 # Results 
 
@@ -243,11 +244,11 @@ Our model for survival time can be reparameterized in such a way that eases inte
 
 $$
 \begin{aligned}
-log(mean[T_i]) =  \alpha_0 + \alpha_1\ time_i + \sum_{j=2}^{5} \alpha_{2j} & \ I(type_i = j) + \sum_{j=2}^{5}  \alpha_{3j}\  I(type_i = j)\ *time_i\
+log(mean[T_i]) =  \alpha_0 + \alpha_1\ time_i + \sum_{j=2}^{5} \alpha_{2j} & \ I(type_i = j) + \sum_{j=2}^{5}  \alpha_{3j}\  I(type_i = j)\ *time_i
 \end{aligned}
 $$
 
-where $\alpha_j = \frac{\beta_j}{r}$ for all j. When exponentiating both sides of this expression, we observe that an increase in one unit of $time$ results in a multiplicative change of $exp(\alpha_1)$ in the mean survival time for a Pope. We can further compute the *percentage* increase in the mean survival time of a Pope given a unit increase in $time$ by computing $100{exp(\_alpha_1) − 1}$ 1}. A similar computation can be performed to understand the effect of increasing time on mean survival time across leader types. This provides an interpretable quantification of the interaction term, $type*time$ appearing in the expression for $log(mu)$.
+where $\alpha_j = - \frac{\beta_j}{r}$ for all j. When exponentiating both sides of this expression, we observe that an increase in one unit of $time$ results in a multiplicative change of $exp(\alpha_1)$ in the mean survival time for a Pope. We can further compute the *percentage* increase in the mean survival time of a Pope given a unit increase in $time$ by computing $100{exp(\_alpha_1) − 1}$ 1}. A similar computation can be performed to understand the effect of increasing time on mean survival time across leader types. This provides an interpretable quantification of the interaction term, $type*time$ appearing in the expression for $log(mu)$.
 
 Below, we summarize the multiplicative and percent changes in the mean survival time resulting from a decade increase in birth year for each leader type. Recall that $time$ is a scaled and shifted version of birth year that is measured in centuries. We thus consider the changes resulting from a 0.1 unit increase in $time$ in order to make interprations on a decade scale. 
 
@@ -297,8 +298,11 @@ bind_rows(Multiplicative_Scale_Factor,
   kableExtra::kable(booktabs = TRUE, 
                     caption = "Posterior Predictions for Lifespans of Living Leaders", 
                     col.names = c("Leadership Type", "Mean", "95% CI")) %>% 
+  kable_styling(full_width = TRUE) %>% 
   kableExtra::pack_rows("Multiplicative Difference", 1,5) %>% 
-  kableExtra::pack_rows("Percent Difference", 6,10)
+  kableExtra::pack_rows("Percent Difference", 6,10) %>% 
+  row_spec(0, bold = TRUE) %>% 
+  column_spec(column = c(2:3), latex_column_spec = "c")
 ```
 
 These values indicate that, barring the Dalai Lamas, as birth year increases by a decade, the expected survival time increases as well. For United States presidents, a decade increase in birth year results in the greatest expected percentage increase in surival time, at 1.18%. For Popes, Chinese Emperors, and Japanese Emperors, the expected increases are slightly more modest, hovering around 0.3%. In contrast, the expect survival time change for a decade increase in birth year for the Dalai Lama is -1.54%. This is consistent with the string of successive early deaths among these leaders that occurred in the 19th and 20th centuries.
@@ -353,9 +357,9 @@ for (param in c("r","beta_0", "beta_1",
 ```
 
 ### Convergence & Autocorrelation Plots 
-To determine if our model has converged sufficiently, we first examine traceplots for each of the parameter values. A traceplot with random scatter around a mean value indicates that the model has converged. $\hat{R}$ provides an estimate of convergence based on the variance of an estimated parameter between chains, and the variance wtihin a chain. The closer the $\hat{R}$ value to 1, the better the model has converged. Visually, we see that our chains have mixed well and that the $\hat{R}$ values are  all very close to 1, indicating that our model has sufficiently converged. 
+To determine if our model has converged sufficiently, we first examine traceplots for each of the parameter values. A traceplot with random scatter around a mean value indicates that the model has converged.$\hat{R}$ provides an estimate of convergence based on the variance of an estimated parameter between chains, and the variance wtihin a chain. The closer the $\hat{R}$ value to 1, the better the model has converged. Visually, we see that our chains have mixed well and that the $\hat{R}$ values are  all very close to 1, indicating that our model has sufficiently converged. 
 
-To determine if our model has reached a stationary distribution, we first looked at autocorrelation plots because each simulation in the MCMC process is serially corrleated with the previous simulations. The lag-1 autocorrelation plots peak at the beginning and then bounce around 0. In addition, $n_{eff}$ gives a measure of effective sample size. Ideally, we want this number to equal the number of posterior draws, or be at least 200. The autocorrelation plots and large $n_eff$ values indicate that our MCMC process has sufficiently reached a stationary distribution. 
+To determine if our model has reached a stationary distribution, we first looked at autocorrelation plots because each simulation in the MCMC process is serially corrleated with the previous simulations. The lag-1 autocorrelation plots peak at the beginning and then bounce around 0. In addition, $n_{eff}$ gives a measure of effective sample size. Ideally, we want this number to equal the number of posterior draws, or be at least 200. The autocorrelation plots and large $n_{eff}$ values indicate that our MCMC process has sufficiently reached a stationary distribution. 
 
 ```{r}
 rhat_neff = Bayesian_Leaders_output$BUGSoutput$summary %>% as.data.frame() %>% select(Rhat, `n.eff`) 
@@ -491,8 +495,6 @@ Bayesian_Leaders_output$BUGSoutput$summary[c("survival_Francis",
   column_spec(column = c(3:7), latex_column_spec = "c") %>% 
   #kable_styling(position = "center", latex_options = c("hold_position")) %>% 
   add_header_above(c(" " = 3, "Posterior Values" = 4))  
-  
-
 ```
 
 We will address our second goal of providing posterior predictions of the lifespans of living leaders. Since we set the upper bound of the truncated Weibull distribution to 110, we expected the upper tails of the 95% credible intervals to be near 110. This is the case for all the leaders expect the 14th Dalia Lama, whose 97.5% quantile is 99.16. As previously discussed, there was a string of early deaths among Dalai Lamas in the 19th century, which may have impacted the posterior predictions for the 14th Dalai Lama. Furthermore, Dalai Lamas represent the smallest group of leadership type ($n = 14$), which limits the prediction. 
@@ -514,11 +516,9 @@ ggplot(DL_vs_francis_data, aes(x = DL_vs_francis, y = ..density..)) +
        subtitle = "Dali Lama and Pope Francis") + 
   theme_light() + 
   geom_vline(xintercept=mean(DL_vs_francis), color = "blue")
-
 ```
 
 In observing the posterior predictive samples for the survival times of the 14th Dalai Lama and Pope Francis, we note that only in  `100*mean(survival_DL>survival_Francis)`% of the simulated samples is the Dalai Lama is predicted to have a longer lifespan. Thus, there is only a `mean(survival_DL>survival_Francis)` probability that the 14th Dalai Lama will have a longer lifespan than Pope Francis. In examining the posterior distribution of the differences between the predicted survival times of the two leaders (Dalai Lama - Francis), we note a mean of `mean(DL_vs_francis)` (shown by the blue line) and median of `median(DL_vs_francis)`, both well below zero. This indicates that, on average, the posterior predictions for the survival time of 14th Dalai Lama are `-1*mean(DL_vs_francis)` years below that of Pope Francis. 
-
 
 ```{r}
 #probability that Obama will live longer thatn Naruhito
