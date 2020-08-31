@@ -532,6 +532,8 @@ In observing the posterior predictive samples for the survival times of the Pres
 
 start off by summarizing answers to all the questions 
 
+There are several limitations in our analysis. These include, but are not limited to, small sample size (as a whole and by leader type), lack of health-related covariates, underrepresentation of women, unavailability of studies that inform strong prior distributions, and the absence of informative covariates that represent type of death (i.e., the case of the four short-lived, 19th-century Dalai Lamas and the disappearance of Chinese Emperor Jianwen). These limitations greatly undermine the heterogenous notions of “world leaders”; for example, without including health covariates, this limits our empirical knowledge of world leaders and the availability of healthcare in certain areas during a specific time period.
+
 #########################
 where $\beta_0$ corresponds with the intercept, $\beta_1$ is the coefficient corresponding to `Time`, $\beta_{type} = (0, \beta_2, \beta_3, \beta_4, \beta_5)$ is the vector of coefficients corresponding to leadership types of Popes, Chinese Emperors, Dalai Lamas, Japanese Emperors, and US Presidents respectively, and $\beta_{type*time} = (0, \beta_6, \beta_7, \beta_8, \beta_9)$ is the vector of coefficient corresponding  to the interaction between `Time` and leadership type.
 
