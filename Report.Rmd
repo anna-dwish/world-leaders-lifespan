@@ -464,7 +464,7 @@ al_index = alive_leaders %>%
 al_names = alive_leaders %>% pull(Name) %>% str_remove_all("\\s*\\([^\\)]+\\)")
 al_cur_age = alive_leaders %>% pull(Age.Event)
 al_type = alive_leaders %>% pull(Type)
-Bayesian_Leader_output$BUGSoutput$summary[c("survival_Francis",
+Bayesian_Leaders_output$BUGSoutput$summary[c("survival_Francis",
                                             "survival_Obama",
                                             "survival_DL",
                                             "survival_Naruhito",
