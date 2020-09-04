@@ -250,7 +250,7 @@ generate_model = function(priors,model_name){
                                                "percentage_increase_int",
                                                "survival"
                         ), 
-                        n.iter = 2500, #increase for better model output - 250K
+                        n.iter = 10000, #increase for better model output - 250K
                         n.chains = 3,
                         model.file = model_file)
     save(rjags_model, file = model_name)
@@ -260,6 +260,7 @@ generate_model = function(priors,model_name){
 ```
 
 ```{r}
+
 ## Model From Paper, Original Id: 6a
 priors <- "
   for(i in 2:5) {
@@ -267,7 +268,7 @@ priors <- "
     beta_int[i] ~ dnorm(0.0, 1)
   }
   
-  beta_0 ~ dnorm(0.0, 1)
+  beta_0 ~ dnorm(0.0, 0.01)
   beta_1 ~ dnorm(0.0, 1)
   
   r ~ dgamma(25,0.2) # Prior on 
@@ -284,7 +285,7 @@ priors <- "
     beta_int[i] ~ dnorm(0.0, 1)
   }
   
-  beta_0 ~ dnorm(0.0, 1) # Prior on beta_0 is normal with low precision
+  beta_0 ~ dnorm(0.0, 0.01) # Prior on beta_0 is normal with low precision
   beta_1 ~ dnorm(0.0, 1) # Prior on beta_1 is normal with low precision
   
   # http://mikemeredith.net/blog/2017/Categories_in_JAGS.htm
@@ -303,7 +304,7 @@ priors <- "
     beta_int[i] ~ dnorm(0.0, .01)
   }
   
-  beta_0 ~ dnorm(0.0, .01) # Prior on beta_0 is normal with low precision
+  beta_0 ~ dnorm(0.0, 0.01) # Prior on beta_0 is normal with low precision
   beta_1 ~ dnorm(0.0, .01) # Prior on beta_1 is normal with low precision
   
   # http://mikemeredith.net/blog/2017/Categories_in_JAGS.htm
@@ -322,7 +323,7 @@ priors <- "
     beta_int[i] ~ dnorm(0.0, 1)
   }
   
-  beta_0 ~ dnorm(0.0, 1)
+  beta_0 ~ dnorm(0.0, 0.01)
   beta_1 ~ dnorm(0.0, 1)
   
   r ~ dexp(0.1) # Prior on r
@@ -340,7 +341,7 @@ priors <- "
     beta_int[i] ~ dnorm(0.0, .01)
   }
   
-  beta_0 ~ dnorm(0.0, .01)
+  beta_0 ~ dnorm(0.0, 0.01)
   beta_1 ~ dnorm(0.0, .01)
   
   r ~ dexp(0.1) # Prior on r
@@ -357,7 +358,7 @@ priors <- "
     beta_int[i] ~ dnorm(0.0, 1)
   }
   
-  beta_0 ~ dnorm(0.0, 1)
+  beta_0 ~ dnorm(0.0, 0.01)
   beta_1 ~ dnorm(0.0, 1)
   
   r ~ dexp(1) # Prior on r
@@ -375,7 +376,7 @@ priors <- "
     beta_int[i] ~ dnorm(0.0, 100)
   }
   
-  beta_0 ~ dnorm(0.0, .01)
+  beta_0 ~ dnorm(0.0, 0.01)
   beta_1 ~ dnorm(0.0, .01)
   
   r ~ dexp(1) # Prior on r
@@ -394,7 +395,7 @@ priors <- "
     beta_int[i] ~ dnorm(0.0, 1)
   }
   
-  beta_0 ~ dnorm(0.0, 1)
+  beta_0 ~ dnorm(0.0, 0.01)
   beta_1 ~ dnorm(0.0, 1)
   
   r ~ dexp(2) # Prior on r
@@ -430,7 +431,7 @@ priors <- "
     beta_int[i] ~ dnorm(0.0, 1)
   }
   
-  beta_0 ~ dnorm(0.0, 1)
+  beta_0 ~ dnorm(0.0, 0.01)
   beta_1 ~ dnorm(0.0, 1)
   
   r ~ dgamma(10,0.5) # Prior on r
@@ -465,10 +466,10 @@ priors <- "
     beta_type[i] ~ dnorm(0.0, 0.01)
     beta_int[i] ~ dnorm(0.0, 0.01)
   }
-  
+
   beta_0 ~ dnorm(0.0, 0.01)
   beta_1 ~ dnorm(0.0, 0.01)
-  
+
   r ~ dgamma(25,0.2) # Prior on r
   "
 Bayesian_Leaders_V6b <- generate_model(priors,"leaders_model_r_25_2e-1_beta_100.Rdata")
@@ -670,25 +671,31 @@ The traceplots, lag-1 autocorrelation plots, as well as the $\hat{R}$ and $n_{ef
 ```{r fig.width=12, fig.align='center'}
 r_vals <- c("1e-3", "1", "10_5e-1", "25_2e-1")
 b_vals <- c("1", "100")
-sensitivity_df = function(param) {
+sensitivity_plot = function(param, renamed_param = NA) {
   df = data.frame()
-  for (r in r_vals) {
-    for (b in b_vals) {
-      file_name = paste0("leaders_model_r_",r,"_beta_",b,".Rdata")
+  for (curr_r in r_vals) {
+    for (curr_b in b_vals) {
+      file_name = paste0("leaders_model_r_",curr_r,"_beta_",curr_b,".Rdata")
       load(file_name)
       
-      param_df = rjags_model$BUGSoutput$sims.matrix %>% 
-        as.data.frame() %>%
-        select(param) %>% 
-        mutate(r = case_when(
-          r == "1e-3" ~ "0.001",
-          r == "10_5e-1" ~ "10_0.5",
-          r == "25_2e-1" ~ "25_0.2",
-          TRUE ~ as.character(r)),
-          priors = ifelse(str_detect(r, "_"),
-                          paste0("r~Ga(", str_split(r, "_")[[1]][1], ",", str_split(r, "_")[[1]][2], "),B~N(0,", b, ")"),
+      curr_param = param
+      rjags.df <- rjags_model$BUGSoutput$sims.matrix %>% as.data.frame()
+      if (!is.na(renamed_param)){
+        colnames(rjags.df)[colnames(rjags.df) == param] = renamed_param
+        curr_param = renamed_param
+      }
+      
+      param_df = rjags.df %>%
+        select(curr_param) %>% 
+        mutate(curr_r = case_when(
+          curr_r == "1e-3" ~ "0.001",
+          curr_r == "10_5e-1" ~ "10_0.5",
+          curr_r == "25_2e-1" ~ "25_0.2",
+          TRUE ~ as.character(curr_r)),
+          priors = ifelse(str_detect(curr_r, "_"),
+                          paste0("r~Ga(", str_split(curr_r, "_")[[1]][1], ",", str_split(curr_r, "_")[[1]][2], "),B~N(0,", curr_b, ")"),
                           
-                          paste0("r~Exp(", r, "),B~N(0,", b, ")")
+                          paste0("r~Exp(", curr_r, "),B~N(0,", curr_b, ")")
           ))
       df = df %>% bind_rows(param_df)
     }
@@ -699,7 +706,7 @@ sensitivity_df = function(param) {
 mean_vals <- Bayesian_Leaders_output$BUGSoutput$summary %>% as.data.frame() %>% select(mean)
 predicted_beta_1 <- c(mean_vals["beta_1",])
 
-sensitivity_df("beta_1")  %>% 
+sensitivity_plot("beta_1")  %>% 
   ggplot() + 
   geom_density(aes(x = beta_1)) + geom_vline(xintercept = predicted_beta_1, color = "red") + 
   labs(title = expression(paste("Sensitivity Analysis for Different Priors on r and ", beta)),
@@ -1004,15 +1011,15 @@ tidybayes::gather_draws(Bayesian_Leaders_output %>% coda::as.mcmc(), r,  beta_0,
 
 
 ```{r fig.height=4, fig.align='center'}
-tidybayes::gather_draws(Bayesian_Leaders_output %>% coda::as.mcmc(), beta_type[i]) %>% 
-  ungroup() %>% 
-  filter(i > 1) %>% 
-  mutate(.variable = ifelse(is.na(i), .variable, paste0(.variable, "[",i, "]"))) %>% 
-  # tidyr::gather(key, value, "beta_0", "beta_1", "r", -i) %>% 
-  ggplot() + 
-  geom_line(aes(x = .iteration, y = .value, color = as.factor(.chain)), alpha = 0.7) + 
-  facet_grid(.variable~., scales = "free_y") + 
-  labs(title = expression(paste("Traceplots of ", beta["2j"], " (coefficients for Type)")), 
+tidybayes::gather_draws(Bayesian_Leaders_output %>% coda::as.mcmc(), beta_type[i]) %>%
+  ungroup() %>%
+  filter(i > 1) %>%
+  mutate(.variable = ifelse(is.na(i), .variable, paste0(.variable, "[",i, "]"))) %>%
+  # tidyr::gather(key, value, "beta_0", "beta_1", "r", -i) %>%
+  ggplot() +
+  geom_line(aes(x = .iteration, y = .value, color = as.factor(.chain)), alpha = 0.7) +
+  facet_grid(.variable~., scales = "free_y") +
+  labs(title = expression(paste("Traceplots of ", beta["2j"], " (coefficients for Type)")),
        x = "Iteration", y = "Value",  color = "Chain")
 ```
 
@@ -1057,6 +1064,194 @@ rhat_neff[rows,] %>%
   kableExtra::kbl(booktabs = TRUE, 
                   col.names = c("Parameter", "Rhat", "N_Eff"))%>% 
   kable_styling(position = "center")
+```
+
+## Further Sensitivity Analysis
+
+```{r}
+mean_vals <- Bayesian_Leaders_output$BUGSoutput$summary %>% as.data.frame() %>% select(mean)
+
+get_mean_val <- function(param, renamed_param=NA){
+  if (!is.na(renamed_param)){
+    mean_vals.df <- as.data.frame(mean_vals)
+    rownames(mean_vals.df)[rownames(mean_vals.df) == param] = renamed_param
+    mean_vals <- as.matrix(mean_vals.df)
+    param = renamed_param
+  }
+  return(c(mean_vals[param,]))
+}
+
+predicted_r <- get_mean_val("r")
+predicted_beta_1 <- get_mean_val("beta_1")
+predicted_dl <- get_mean_val("survival_DL")
+predicted_francis <- get_mean_val("survival_Francis")
+predicted_naruhito <- get_mean_val("survival_Naruhito")
+predicted_obama <- get_mean_val("survival_Obama")
+
+predicted_ChinaEmp <- get_mean_val("beta_int[2]","ChinaEmp")
+predicted_DalaiLama <- get_mean_val("beta_int[3]","DalaiLama")
+predicted_JapanEmp <- get_mean_val("beta_int[4]","JapanEmp")
+predicted_USPres <- get_mean_val("beta_int[5]","USPres")
+
+predicted_ChinaEmpTime <- get_mean_val("beta_type[2]","ChinaEmpTime")
+predicted_DalaiLamaTime <- get_mean_val("beta_type[3]","DalaiLamaTime")
+predicted_JapanEmpTime <- get_mean_val("beta_type[4]","JapanEmpTime")
+predicted_USPresTime <- get_mean_val("beta_type[5]","USPresTime")
+```
+
+```{r}
+sensitivity_plot("r")  %>% 
+  ggplot() + 
+  geom_density(aes(x = r)) + geom_vline(xintercept = predicted_r, color = "red") + 
+  labs(title = expression(paste("r : Sensitivity Analysis for Different Priors on r and ", beta)),
+       x = expression(beta[1]),caption="Figure 7.1") + 
+  theme(plot.caption = element_text(hjust = 0.5, vjust = -0.5, size = 16)) + 
+  facet_wrap(priors~.,  scales = "free_y", nrow = 2) 
+```
+
+```{r}
+# sensitivity_plot("beta_1")  %>%
+#   ggplot() +
+#   geom_density(aes(x = beta_1)) + geom_vline(xintercept = predicted_beta_1, color = "red") +
+#   labs(title = expression(paste("ime Coefficient: Sensitivity Analysis for Different Priors on r and ", beta)),
+#        x = expression(beta[1]),caption="Figure 7.2") + xlim(80,90) + 
+#   theme(plot.caption = element_text(hjust = 0.5, vjust = -0.5, size = 16)) +
+#   facet_wrap(priors~.,  scales = "free_y", nrow = 2) 
+```
+
+```{r}
+sensitivity_plot("survival_DL")  %>%
+  ggplot() +
+  geom_density(aes(x = survival_DL)) + geom_vline(xintercept = predicted_dl, color = "red") +
+  labs(title = expression(paste("14th Dalai Lama: Sensitivity Analysis for Different Priors on r and ", beta)),
+       x = expression(beta[1]),caption="Figure 8") + xlim(80,90) + 
+  theme(plot.caption = element_text(hjust = 0.5, vjust = -0.5, size = 16)) +
+  facet_wrap(priors~.,  scales = "free_y", nrow = 2) 
+```
+
+```{r}
+sensitivity_plot("survival_Francis")  %>%
+  ggplot() +
+  geom_density(aes(x = survival_Francis)) + geom_vline(xintercept = predicted_francis, color = "red") +
+  labs(title = expression(paste("Pope Francis: Sensitivity Analysis for Different Priors on r and ", beta)),
+       x = expression(beta[1]),caption="Figure 9") + xlim(88,100) + 
+  theme(plot.caption = element_text(hjust = 0.5, vjust = -0.5, size = 16)) +
+  facet_wrap(priors~.,  scales = "free_y", nrow = 2)
+```
+
+```{r}
+sensitivity_plot("survival_Naruhito")  %>%
+  ggplot() +
+  geom_density(aes(x = survival_Naruhito)) + geom_vline(xintercept = predicted_naruhito, color = "red") +
+  labs(title = expression(paste("Emperor Naruhito: Sensitivity Analysis for Different Priors on r and ", beta)),
+       x = expression(beta[1]),caption="Figure 10") + xlim(70,80) + 
+  theme(plot.caption = element_text(hjust = 0.5, vjust = -0.5, size = 16)) +
+  facet_wrap(priors~.,  scales = "free_y", nrow = 2)
+```
+
+```{r}
+sensitivity_plot("survival_Obama")  %>%
+  ggplot() +
+  geom_density(aes(x = survival_Obama)) + geom_vline(xintercept = predicted_obama, color = "red") +
+  labs(title = expression(paste("President Obama: Sensitivity Analysis for Different Priors on r and ", beta)),
+       x = expression(beta[1]),caption="Figure 11") + xlim(80,90) + 
+  theme(plot.caption = element_text(hjust = 0.5, vjust = -0.5, size = 16)) +
+  facet_wrap(priors~.,  scales = "free_y", nrow = 2)
+```
+
+```{r}
+sensitivity_plot("beta_int[2]","ChinaEmp")  %>% 
+  ggplot() + 
+  geom_density(aes(x = ChinaEmp)) + geom_vline(xintercept = predicted_ChinaEmp, color = "red") + 
+  labs(title = expression(paste("Chinese Emperor Coefficient : Sensitivity Analysis for Different Priors on r and ", beta)),
+       x = expression(beta[1]),caption="Figure 12") + 
+  theme(plot.caption = element_text(hjust = 0.5, vjust = -0.5, size = 16)) + 
+  facet_wrap(priors~.,  scales = "free_y", nrow = 2)
+```
+
+```{r}
+sensitivity_plot("beta_int[3]","DalaiLama")  %>% 
+  ggplot() + 
+  geom_density(aes(x = DalaiLama)) + geom_vline(xintercept = predicted_DalaiLama, color = "red") + 
+  labs(title = expression(paste("Dalai Lama Coefficient : Sensitivity Analysis for Different Priors on r and ", beta)),
+       x = expression(beta[1]),caption="Figure 13") + 
+  theme(plot.caption = element_text(hjust = 0.5, vjust = -0.5, size = 16)) + 
+  facet_wrap(priors~.,  scales = "free_y", nrow = 2)
+```
+
+```{r}
+sensitivity_plot("beta_int[4]","JapanEmp")  %>% 
+  ggplot() + 
+  geom_density(aes(x = JapanEmp)) + geom_vline(xintercept = predicted_JapanEmp, color = "red") + 
+  labs(title = expression(paste("Japanese Emperor Coefficient : Sensitivity Analysis for Different Priors on r and ", beta)),
+       x = expression(beta[1]),caption="Figure 14") + 
+  theme(plot.caption = element_text(hjust = 0.5, vjust = -0.5, size = 16)) + 
+  facet_wrap(priors~.,  scales = "free_y", nrow = 2) 
+```
+
+```{r}
+sensitivity_plot("beta_int[5]","USPres")  %>% 
+  ggplot() + 
+  geom_density(aes(x = USPres)) + geom_vline(xintercept = predicted_USPres, color = "red") + 
+  labs(title = expression(paste("US President * Time Coefficient : Sensitivity Analysis for Different Priors on r and ", beta)),
+       x = expression(beta[1]),caption="Figure 15") + 
+  theme(plot.caption = element_text(hjust = 0.5, vjust = -0.5, size = 16)) + 
+  facet_wrap(priors~.,  scales = "free_y", nrow = 2) 
+```
+
+```{r}
+sensitivity_plot("beta_type[2]","ChinaEmpTime")  %>% 
+  ggplot() + 
+  geom_density(aes(x = ChinaEmpTime)) + geom_vline(xintercept = predicted_ChinaEmpTime, color = "red") + 
+  labs(title = expression(paste("Chinese Emperor * Time Coefficient : Sensitivity Analysis for Different Priors on r and ", beta)),
+       x = expression(beta[1]),caption="Figure 16") + 
+  theme(plot.caption = element_text(hjust = 0.5, vjust = -0.5, size = 16)) + 
+  facet_wrap(priors~.,  scales = "free_y", nrow = 2)
+```
+
+```{r}
+sensitivity_plot("beta_type[3]","DalaiLamaTime")  %>% 
+  ggplot() + 
+  geom_density(aes(x = DalaiLamaTime)) + geom_vline(xintercept = predicted_DalaiLamaTime, color = "red") + 
+  labs(title = expression(paste("Dalai Lama Coefficient : Sensitivity Analysis for Different Priors on r and ", beta)),
+       x = expression(beta[1]),caption="Figure 17") + 
+  theme(plot.caption = element_text(hjust = 0.5, vjust = -0.5, size = 16)) + 
+  facet_wrap(priors~.,  scales = "free_y", nrow = 2)
+```
+
+```{r}
+sensitivity_plot("beta_type[4]","JapanEmpTime")  %>% 
+  ggplot() + 
+  geom_density(aes(x = JapanEmpTime)) + geom_vline(xintercept = predicted_JapanEmpTime, color = "red") + 
+  labs(title = expression(paste("Japanese Emperor * Time Coefficient : Sensitivity Analysis for Different Priors on r and ", beta)),
+       x = expression(beta[1]),caption="Figure 18") + 
+  theme(plot.caption = element_text(hjust = 0.5, vjust = -0.5, size = 16)) + 
+  facet_wrap(priors~.,  scales = "free_y", nrow = 2) 
+```
+
+```{r}
+sensitivity_plot("beta_type[5]","USPresTime")  %>% 
+  ggplot() + 
+  geom_density(aes(x = USPresTime)) + geom_vline(xintercept = predicted_USPresTime, color = "red") + 
+  labs(title = expression(paste("US President * Time Coefficient : Sensitivity Analysis for Different Priors on r and ", beta)),
+       x = expression(beta[1]),caption="Figure 19") + 
+  theme(plot.caption = element_text(hjust = 0.5, vjust = -0.5, size = 16)) + 
+  facet_wrap(priors~.,  scales = "free_y", nrow = 2) 
+```
+
+```{r}
+lowvar <- as.data.frame(Bayesian_Leaders_output$BUGS$sims.matrix)
+noninform <- as.data.frame(Bayesian_Leaders_6aii$BUGS$sims.matrix)
+# hist(Bayesian_Leaders_6aii$BUGS$sims.matrix[,"beta_0"])
+```
+
+```{r}
+
+hgA <- hist(Bayesian_Leaders_output$BUGS$sims.matrix[,"beta_0"], col='red', plot=FALSE) # Save first histogram data
+hgB <- hist(Bayesian_Leaders_6aii$BUGS$sims.matrix[,"beta_0"], col='blue', plot = FALSE) # Save 2nd histogram data
+
+plot(hgA) # Plot 1st histogram using a transparent color
+plot(hgB, add = TRUE) # Add 2nd histogram using different color
 ```
 
 ## Calculations from Section 5.1
