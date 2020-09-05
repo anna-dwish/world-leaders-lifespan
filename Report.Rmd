@@ -23,7 +23,7 @@ pkgTest <- function(x)
 ```{r include=FALSE}
 # Installing packages 
 # Additionally, if you are struggling to download RJags, please visit the following link for help. It can also help to try to download the package locally or in RStudio Cloud: https://sites.google.com/a/utexas.edu/edm-principalstratification/downloading-installing-r-jags-rstudio
-pkgTest("tidyverse")
+#pkgTest("tidyverse")
 pkgTest("knitr")
 pkgTest("kableExtra")
 pkgTest("stringr")
@@ -499,7 +499,7 @@ gridExtra::grid.arrange(ggplot(leaders, aes(x = Type, y = Age.Event)) +
 
 ```
 
-Figure 1 displays lifespan across different leadership types. Among the Chinese Emperors, Japanese Emperors, and Dalai Lamas, the interquartile ranges of lifespan largely overlap. Additionally, Popes and U.S. presidents appear to have a slightly higher median lifespan relative to Chinese Emperors and Dalai Lamas. 
+Figure 1 displays lifespan across different leadership types. Among the Chinese Emperors, Japanese Emperors, and Dalai Lamas, the interquartile ranges of lifespan largely overlap. Popes and U.S. presidents appear to have a slightly higher median lifespan relative to these three groups. This is consistent with the fact that Popes and Presidents are elected much later in their lives, while Chinese Emperors, Japenese Emperors, and Dalai Lamas typically come to power when they are younger (whether due to heredity or identification at a young age). An American citizen who dies in her youth, for example, can never become President due to the age threshold delineated in the Constitution. Consequently, her short survival time can never be reflected in this dataset. 
 
 
 Figure 2 displays the change in lifespan across time for different types of leadership. It appears that lifespan has increased at similar rates across Chinese and Japanese Emperors, U.S. Presidents and Popes over time. However, for Dalai Lamas, the plot indicates that lifespan has decreased over time. This unexpected trend can be attributed to the untimely demise of several Dalai Lamas in the 19th century, with causes of death ranging from common illnesses to ceiling collapses [[5]][Bibliography]. 
