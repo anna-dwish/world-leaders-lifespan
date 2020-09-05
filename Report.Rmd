@@ -46,6 +46,7 @@ knitr::opts_chunk$set(echo = FALSE,
                       warning = FALSE)
 ggplot2::theme_set(new = theme_bw())
 library(tidyverse)
+library(dplyr)
 library(knitr)
 library(kableExtra)
 library(stringr)
@@ -814,38 +815,146 @@ bind_rows(Multiplicative_Scale_Factor,
   column_spec(column = c(2:3), latex_column_spec = "c") %>% 
   column_spec(column = c(1), width = "20em")
 
-model <- Bayesian_Leaders_output$BUGS$summary %>% as.data.frame()
 
-#Chinese Emperors
-ce_int <- exp(model$mean[7])
-
-#Dalai Lamas
-dl_int <- exp(model$mean[8])
-
-#Japanese Emperor
-je_int <- exp(model$mean[9])
-
-#US Pres
-us_int <- exp(model$mean[10])
-model <- Bayesian_Leaders_output$BUGS$summary %>% as.data.frame()
-#Chinese Emperors
-ce_int <- exp(model$mean[7])
-#Dalai Lamas
-dl_int <- exp(model$mean[8])
-#Japanese Emperor
-je_int <- exp(model$mean[9])
-#US Pres
-us_int <- exp(model$mean[10])
 ```
 
-In Table 2, we summarize the multiplicative and percent changes in the mean survival time resulting from a decade increase in birth year for each leader type. Recall that $time$ is a scaled and shifted version of birth year that is measured in centuries. We thus consider the changes resulting from a 0.1 unit increase in $time$ in order to make interprations on a decade scale. These values indicate that, barring the Dalai Lamas, as a leader's birth year increases by a decade, their expected survival time increases as well. For U.S. Presidents, a decade increase in birth year results in a `r round(us_percent_difference[2], digits = 2)` expected percentage increase in surival time- the highest across groups. For Popes, Chinese Emperors, and Japanese Emperors, the expected increases are slightly more modest, hovering around 0.3%. In contrast, the expect survival time change for a decade increase in birth year for Dalai Lamas is `r round(dl_percent_difference[2], digits = 2)`. This negative prediction is consistent with the string of successive early deaths among these leaders that occurred in the 19th century.
+
+--NOTE TO FILL THIS IN LATER ONCE WE HAVE OUR FINAL VALUES--
+In Table 2, we summarize the percent changes in the mean survival time resulting from a decade increase in birth year for each leader type. Recall that $time$ is a scaled and shifted version of birth year that is measured in centuries. We thus consider the changes resulting from a 0.1 unit increase in $time$ in order to make interprations on a decade scale. As can be seen, the 95% credible intervals for ________, ________, and ________ contain the value 0. Thus, for these types of leaders, we see that a decade increase in birth year does not yield a significant change in expected survival time. In contrast,  the intervals for _______ and ______ do not contain 0. Specifically, ______ for ______ indicates a _______, while _________ for _______ indicates _______. Though these values point toward significance, they are still quite close to 0, signaling that a relationship between birth year and survival time is largely independent of leadership type. Furthermore, across the board, it seems that increases in birth year are largely insignificant. 
 
 
-In this sense, the relationship between birth year and survival time is somewhat dependent on leadership type. As Chinese Emperors, Japanese Emperors, and Popes exhibit very similar increases in expected survival, it seems that their respective leadership types do not play a strong role in determining the relationship between birth year and survival. However, when considering U.S. Presidents and Dalai Lamas, we see that the effect of birth year on survival is strongly influenced by type of leadership.
+Interpreting the individual effect of $type$ on survival time is not as straightforward as understanding its interaction with $time$. However, if we choose certain values of $time$ to condition on, we can extract meaningful insights. Once conditioned on $time$, we can quantify the multiplicative change that occurs in mean survival time in relation to the baseline level of popes. 
 
-Interpreting the individual effect of $type$ on survival time is not as straightforward as understanding its interaction with $time$. However, if we choose certain values of $time$ to condition on, we can extract meaningful insights. Consider leaders with a birth year corresponding to the mean $time$ value in the dataset, which is 1674. For these leaders, we can quantify the multiplicative change that occurs in mean survival time in relation to the baseline level of popes. 
 
-Let $pope_i$ represent a Pope born in the mean birth year of the dataset. Then, a Chinese Emperor with the same birth year has an expected predicted survival time that is `r round(ce_int, 2)` times as much as $pope_i$. Similarly, a Dalai Lama born in the same year will be expected to survive only `r round(dl_int, 2)` times as long as $pope_i$. For a Japanese emperor of mean birth year, expected survival time is `r round(je_int, 2)` times that of $pope_i$. And finally, a U.S. President has an expected survival time that is `r round(us_int, 2)` times as much of $pope_i$. Calculations for these values are included in the Appendix. These values indicate that, among all leaders with the mean birth year of the dataset, popes have the largest mean survival time. However, this statement does not generalize across birth year.
+
+```{r}
+#range of birth years 
+#POPES: 1324-1936
+#CHINESE EMPEROR: 1328-1906
+#DL: 1391-1935
+#JAPANESE EMPEROR: 1328-1933
+#US PRESIDENT: 1732-1961
+
+#dates: 1800, 1850, 1900
+model <- Bayesian_Leaders_output$BUGS$summary %>% as.data.frame()
+
+dates_of_interest <- c(1800, 1850, 1900)
+centered_dates_of_interest <- (dates_of_interest - c(1300, 1300, 1300))/100
+centered_dates_of_interest <- centered_dates_of_interest - mean(filtered_leaders$time)
+Type <- c("Chinese Emperor", "Dalai Lama", "Japanese Emperor", "U.S. President")
+
+#1800:
+time <- centered_dates_of_interest[1]
+
+#Chinese Emperors
+ce_ft <- c(model$`2.5%`[7] + time*(model$`2.5%`[3]), model$mean[7] + time*(model$mean[3]), model$`97.5%`[7] + time*(model$`97.5%`[3]))
+ce_multiplicative_difference_ft <- exp(ce_ft)
+ce_percent_difference_ft <- 100*(ce_multiplicative_difference_ft - 1)
+
+#Dalai Lama
+dl_ft <- c(model$`2.5%`[8] + time*(model$`2.5%`[4]), model$mean[8] + time*(model$mean[4]), model$`97.5%`[8] + time*(model$`97.5%`[4]))
+dl_multiplicative_difference_ft <- exp(dl_ft)
+dl_percent_difference_ft <- 100*(dl_multiplicative_difference_ft - 1)
+
+#Japanese Emperor
+
+je_ft <- c(model$`2.5%`[9] + time*(model$`2.5%`[5]), model$mean[9] + time*(model$mean[5]), model$`97.5%`[9] + time*(model$`97.5%`[5]))
+je_multiplicative_difference_ft <- exp(je_ft)
+je_percent_difference_ft <- 100*(je_multiplicative_difference_ft - 1)
+
+#US Presidents
+
+us_ft <- c(model$`2.5%`[10] + time*(model$`2.5%`[6]), model$mean[10] + time*(model$mean[6]), model$`97.5%`[10] + time*(model$`97.5%`[6]))
+us_multiplicative_difference_ft <- exp(us_ft)
+us_percent_difference_ft <- 100*(us_multiplicative_difference_ft - 1)
+
+
+Percent_Difference_1800 <- data.frame(Type, t(data.frame(ce_percent_difference_ft, dl_percent_difference_ft, je_percent_difference_ft, us_percent_difference_ft))) %>%
+  mutate_if(is.numeric, round, digits=3) %>% 
+  mutate(Mean = X2) %>%
+  mutate(`95% CI` = paste0("(", X1, ", ", X3, ")")) %>%
+  select(Type, Mean, `95% CI`)
+  
+#1850:
+time <- centered_dates_of_interest[2]
+
+#Chinese Emperors
+ce_ft <- c(model$`2.5%`[7] + time*(model$`2.5%`[3]), model$mean[7] + time*(model$mean[3]), model$`97.5%`[7] + time*(model$`97.5%`[3]))
+ce_multiplicative_difference_ft <- exp(ce_ft)
+ce_percent_difference_ft <- 100*(ce_multiplicative_difference_ft - 1)
+
+#Dalai Lama
+dl_ft <- c(model$`2.5%`[8] + time*(model$`2.5%`[4]), model$mean[8] + time*(model$mean[4]), model$`97.5%`[8] + time*(model$`97.5%`[4]))
+dl_multiplicative_difference_ft <- exp(dl_ft)
+dl_percent_difference_ft <- 100*(dl_multiplicative_difference_ft - 1)
+
+#Japanese Emperor
+
+je_ft <- c(model$`2.5%`[9] + time*(model$`2.5%`[5]), model$mean[9] + time*(model$mean[5]), model$`97.5%`[9] + time*(model$`97.5%`[5]))
+je_multiplicative_difference_ft <- exp(je_ft)
+je_percent_difference_ft <- 100*(je_multiplicative_difference_ft - 1)
+
+#US Presidents
+
+us_ft <- c(model$`2.5%`[10] + time*(model$`2.5%`[6]), model$mean[10] + time*(model$mean[6]), model$`97.5%`[10] + time*(model$`97.5%`[6]))
+us_multiplicative_difference_ft <- exp(us_ft)
+us_percent_difference_ft <- 100*(us_multiplicative_difference_ft - 1)
+
+
+Percent_Difference_1850 <- data.frame(Type, t(data.frame(ce_percent_difference_ft, dl_percent_difference_ft, je_percent_difference_ft, us_percent_difference_ft))) %>%
+  mutate_if(is.numeric, round, digits=3) %>% 
+  mutate(Mean = X2) %>%
+  mutate(`95% CI` = paste0("(", X1, ", ", X3, ")")) %>%
+  select(Type, Mean, `95% CI`)
+  
+
+#1900:
+time <- centered_dates_of_interest[3]
+
+#Chinese Emperors
+ce_ft <- c(model$`2.5%`[7] + time*(model$`2.5%`[3]), model$mean[7] + time*(model$mean[3]), model$`97.5%`[7] + time*(model$`97.5%`[3]))
+ce_multiplicative_difference_ft <- exp(ce_ft)
+ce_percent_difference_ft <- 100*(ce_multiplicative_difference_ft - 1)
+
+#Dalai Lama
+dl_ft <- c(model$`2.5%`[8] + time*(model$`2.5%`[4]), model$mean[8] + time*(model$mean[4]), model$`97.5%`[8] + time*(model$`97.5%`[4]))
+dl_multiplicative_difference_ft <- exp(dl_ft)
+dl_percent_difference_ft <- 100*(dl_multiplicative_difference_ft - 1)
+
+#Japanese Emperor
+
+je_ft <- c(model$`2.5%`[9] + time*(model$`2.5%`[5]), model$mean[9] + time*(model$mean[5]), model$`97.5%`[9] + time*(model$`97.5%`[5]))
+je_multiplicative_difference_ft <- exp(je_ft)
+je_percent_difference_ft <- 100*(je_multiplicative_difference_ft - 1)
+
+#US Presidents
+
+us_ft <- c(model$`2.5%`[10] + time*(model$`2.5%`[6]), model$mean[10] + time*(model$mean[6]), model$`97.5%`[10] + time*(model$`97.5%`[6]))
+us_multiplicative_difference_ft <- exp(us_ft)
+us_percent_difference_ft <- 100*(us_multiplicative_difference_ft - 1)
+
+
+Percent_Difference_1900 <- data.frame(Type, t(data.frame(ce_percent_difference_ft, dl_percent_difference_ft, je_percent_difference_ft, us_percent_difference_ft))) %>%
+  mutate_if(is.numeric, round, digits=3) %>% 
+  mutate(Mean = X2) %>%
+  mutate(`95% CI` = paste0("(", X1, ", ", X3, ")")) %>%
+  select(Type, Mean, `95% CI`)
+  
+
+bind_rows(Percent_Difference_1800,
+          Percent_Difference_1850, Percent_Difference_1900) %>% 
+  kableExtra::kable(booktabs = TRUE,
+                    caption = "Percent Difference in Mean Survival Time For World Leaders as Compared to Popes, Conditioned on Various Birth Years", 
+                    col.names = c("Leadership Type", "Mean", "95% CI")) %>% 
+  kable_styling(latex_options = c("hold_position")) %>% 
+  kableExtra::pack_rows("1800", 1,4) %>% 
+  kableExtra::pack_rows("1850", 5,8) %>% 
+  kableExtra::pack_rows("1900", 9,12) 
+```
+
+The above table shows, at three different birth years, the expected percent difference in the mean survival time of world leaders as compared to the baseline level of Popes. Across the three birth years, 1800, 1850, and 1900, the expected survial times for Chinese Emperors and Dalai Lamas is significantly lower than that of Popes. For example, a Chinese Emperor born in 1900 is expected to have a survival time that is `r round(ce_percent_difference_ft[2], 2)` % less than a Pope born in the same year. Similarly, a Dalai Lama born in 1900 is expected to have survival time that is `r round(dl_percent_difference_ft[2], 2)` % less than a Pope born in the same year. 
+
+Althought the average percent difference in expected survival time for Japanese Emperor and U.S. Presidents as compared to Popes is negative across the three birth years, the corresponding credible intervals contain zero, suggesting that these value are not significnt. Thus, the difference in survival times for these two groups, compared to Popes, when conditioned on specific birth years cannot be commented on concretely. 
 
 ## Posterior Predictive Distribution 
 
@@ -966,7 +1075,9 @@ From the posterior predictive samples for the survival times of President Obama 
 
 # Conclusion & Limitations 
 
-Our analysis supports that the relationship between birth year and survival time is dependent on certain leadership types. Specifically, U.S. Presidents exhibit an increase in mean survival time for a decade increase in birth year. In contrast, Dalai Lamas exhibit a decrease. Having answered these questions, we will now state the limitations. These include, but are not limited to, small sample size, lack of health-related covariates, underrepresentation of women, and the unavailability of studies that inform strong prior distributions. We suggest that future studies should explore the lifespans of “unconventional” leaders, who don’t necessarily hold an official position of office, along with established leaders from Latin America, Africa, and Southeast Asia.
+--Could potentiall add more here--
+Our analysis supports that there is not a significant association between birth year and survival time among various world leaders. Further, our model has found that a leader's survival time is not dependent on their type of leadership. 
+Having answered these questions, we will now state the limitations. These include, but are not limited to, small sample size, lack of health-related covariates, underrepresentation of women, and the unavailability of studies that inform strong prior distributions. We suggest that future studies should explore the lifespans of “unconventional” leaders, who don’t necessarily hold an official position of office, along with established leaders from Latin America, Africa, and Southeast Asia.
 
 # Appendix 
 
