@@ -223,13 +223,12 @@ generate_model_text = function(priors=""){
 ```
 
 ```{r}
-generate_model = function(priors,model_name){
+generate_model = function(priors,model_name,num_iter = 250000){
   model_file <- generate_model_text(priors)
   if (file.exists(model_name)) {
     load(file = model_name)
   } 
   else {
-    
     rjags_model <-  jags.parallel(data = data_leaders,  
                         parameters.to.save = c("beta_0",
                                                "beta_1",
@@ -250,7 +249,7 @@ generate_model = function(priors,model_name){
                                                "percentage_increase_int",
                                                "survival"
                         ), 
-                        n.iter = 10000, #increase for better model output - 250K
+                        n.iter = num_iter, #increase for better model output - 250K
                         n.chains = 3,
                         model.file = model_file)
     save(rjags_model, file = model_name)
@@ -260,8 +259,7 @@ generate_model = function(priors,model_name){
 ```
 
 ```{r}
-
-## Model From Paper, Original Id: 6a
+## Model From Paper, Original Id: 5a
 priors <- "
   for(i in 2:5) {
     beta_type[i] ~ dnorm(0.0, 1)
@@ -271,9 +269,9 @@ priors <- "
   beta_0 ~ dnorm(0.0, 0.01)
   beta_1 ~ dnorm(0.0, 1)
   
-  r ~ dgamma(25,0.2) # Prior on 
+  r ~ dgamma(10,0.5) # Prior on r 
   "
-Bayesian_Leaders_output <- generate_model(priors,"leaders_model_r_25_2e-1_beta_1.Rdata")
+Bayesian_Leaders_output <- generate_model(priors,"leaders_model_r_10_5e-1_beta_1.Rdata",500000)
 ```
 
 
@@ -287,9 +285,6 @@ priors <- "
   
   beta_0 ~ dnorm(0.0, 0.01) # Prior on beta_0 is normal with low precision
   beta_1 ~ dnorm(0.0, 1) # Prior on beta_1 is normal with low precision
-  
-  # http://mikemeredith.net/blog/2017/Categories_in_JAGS.htm
-  # potentially set different prior for dalai lamas (negative mean or somethin)
   
   r ~ dexp(0.001) # Prior on r
   "
@@ -306,9 +301,6 @@ priors <- "
   
   beta_0 ~ dnorm(0.0, 0.01) # Prior on beta_0 is normal with low precision
   beta_1 ~ dnorm(0.0, .01) # Prior on beta_1 is normal with low precision
-  
-  # http://mikemeredith.net/blog/2017/Categories_in_JAGS.htm
-  # potentially set different prior for dalai lamas (negative mean or somethin)
   
   r ~ dexp(0.001) # Prior on r
   "
@@ -330,7 +322,6 @@ priors <- "
   "
 Bayesian_Leaders_V2a <- generate_model(priors,"leaders_model_r_1e-1_beta_1.Rdata")
 ```
-
 
 ```{r}
 ## Model 2b - r ~ exp(0.1), Betas ~ N(0,100)
@@ -366,8 +357,6 @@ priors <- "
 Bayesian_Leaders_V3a <- generate_model(priors,"leaders_model_r_1_beta_1.Rdata")
 ```
 
-
-
 ```{r}
 ## Model 3b - r ~ exp(1), Betas ~ N(0,100)
 priors <- "
@@ -383,9 +372,6 @@ priors <- "
   "
 Bayesian_Leaders_V3b <- generate_model(priors,"leaders_model_r_1_beta_100.Rdata")
 ```
-
-
-
 
 ```{r}
 ## Model 4a - r ~ exp(2), Betas ~ N(0,1)
@@ -422,25 +408,6 @@ Bayesian_Leaders_V4b <- generate_model(priors,"leaders_model_r_2_beta_100.Rdata"
 ```
 
 
-
-```{r}
-## Model 5a - r ~ gamma(10,0.5), Betas ~ N(0,1)
-priors <- "
-  for(i in 2:5) {
-    beta_type[i] ~ dnorm(0.0, 1)
-    beta_int[i] ~ dnorm(0.0, 1)
-  }
-  
-  beta_0 ~ dnorm(0.0, 0.01)
-  beta_1 ~ dnorm(0.0, 1)
-  
-  r ~ dgamma(10,0.5) # Prior on r
-  "
-Bayesian_Leaders_V5a <- generate_model(priors,"leaders_model_r_10_5e-1_beta_1.Rdata")
-```
-
-
-
 ```{r}
 ## Model 5b - r ~ gamma(10,0.5), Betas ~ N(0,100)
 priors <- "
@@ -457,7 +424,21 @@ priors <- "
 Bayesian_Leaders_V5b <- generate_model(priors,"leaders_model_r_10_5e-1_beta_100.Rdata")
 ```
 
-
+```{r}
+## Model 6a - r ~ gamma(25,0.2), Betas ~ N(0,1)
+priors <- "
+  for(i in 2:5) {
+    beta_type[i] ~ dnorm(0.0, 1)
+    beta_int[i] ~ dnorm(0.0, 1)
+  }
+  
+  beta_0 ~ dnorm(0.0, 0.01)
+  beta_1 ~ dnorm(0.0, 1)
+  
+  r ~ dgamma(25,0.2) # Prior on r
+  "
+Bayesian_Leaders_V6a <- generate_model(priors,"leaders_model_r_25_2e-1_beta_1.Rdata")
+```
 
 ```{r}
 ## Model 6b - r=gamma(25,0.2), Betas: N(0,100)
@@ -1237,21 +1218,6 @@ sensitivity_plot("beta_type[5]","USPresTime")  %>%
        x = expression(beta[1]),caption="Figure 19") + 
   theme(plot.caption = element_text(hjust = 0.5, vjust = -0.5, size = 16)) + 
   facet_wrap(priors~.,  scales = "free_y", nrow = 2) 
-```
-
-```{r}
-lowvar <- as.data.frame(Bayesian_Leaders_output$BUGS$sims.matrix)
-noninform <- as.data.frame(Bayesian_Leaders_6aii$BUGS$sims.matrix)
-# hist(Bayesian_Leaders_6aii$BUGS$sims.matrix[,"beta_0"])
-```
-
-```{r}
-
-hgA <- hist(Bayesian_Leaders_output$BUGS$sims.matrix[,"beta_0"], col='red', plot=FALSE) # Save first histogram data
-hgB <- hist(Bayesian_Leaders_6aii$BUGS$sims.matrix[,"beta_0"], col='blue', plot = FALSE) # Save 2nd histogram data
-
-plot(hgA) # Plot 1st histogram using a transparent color
-plot(hgB, add = TRUE) # Add 2nd histogram using different color
 ```
 
 ## Calculations from Section 5.1
