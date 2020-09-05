@@ -23,7 +23,7 @@ pkgTest <- function(x)
 ```{r include=FALSE}
 # Installing packages 
 # Additionally, if you are struggling to download RJags, please visit the following link for help. It can also help to try to download the package locally or in RStudio Cloud: https://sites.google.com/a/utexas.edu/edm-principalstratification/downloading-installing-r-jags-rstudio
-#pkgTest("tidyverse")
+pkgTest("tidyverse")
 pkgTest("knitr")
 pkgTest("kableExtra")
 pkgTest("stringr")
