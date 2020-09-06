@@ -465,7 +465,9 @@ Our goal is to ultimately determine how year of birth and type of leadership are
 
 # Data 
 
-Leaders in this dataset date from the 14th century through present day. Survival time, in years, is defined to be either the leader’s current age, if alive, or age of death, if deceased. The 10 leaders in the dataset that are currently alive are considered right censored observations - that is, we do not know their age of death, but know their current age. 
+Leaders in this dataset date from the 14th century through present day. Survival time, in years, is defined to be either the leader’s current age, if alive, or age of death, if deceased. The 10 leaders in the dataset that are currently alive are considered right censored observations - that is, we do not know their age of death, but know their current age. (change to: The 11 leaders that are currently alive or do not have a recorded death date are considered right censored observations - that is, we do not know their age of death, but know their current age. 10 leaders are currently alive, and Chinese emperor Jiawen, who was born in the 14th century, disappeared and is presumably long dead by now.)
+
+AWEOFAHSKLDJFALS - also maybe say somthing about removing Obama and ppl? 
 
 Covariates of interest in this study are $type$ and $time$. $Type$ is a categorical variable corresponding to 5 different groups of world leaders. Of the $type$ levels, popes are the most represented with 63 observations while Dalai Lamas comprise the smallest group, with only 14 instances. The $time$ covariate represents a leader's year of birth, measured as the number of centuries since 1300. For example, as Pope Francis was born roughly 637 years after January 1, 1300, his $time$ value is represented as 6.37. We opted for this shifted and scaled version of birth year in order to prevent larger year values (1961, for example) from causing model instability. 
 
@@ -488,11 +490,11 @@ gridExtra::grid.arrange(ggplot(leaders, aes(x = Type, y = Age.Event)) +
                           theme(
                             plot.caption = element_text(hjust = 0.5, vjust = -0.5, size = 18))
                         ,
-                        ggplot(leaders, aes(x=time, y=Age.Event, shape=Type, color=Type)) +
+                        ggplot(leaders, aes(x=Birth.Date, y=Age.Event, shape=Type, color=Type)) +
                           geom_point() + 
-                          labs(title="Lifespans vs Transformed Birth Year",
+                          labs(title="Lifespans vs Birth Date",
                                caption="Figure 2") + 
-                          xlab("Transformed Birth Year") +
+                          xlab("Transformed Birth Date") +
                           geom_smooth(method = "lm", se=FALSE) + 
                           theme(axis.title.y = element_blank(),
                                 plot.caption = element_text(hjust = 0.5, vjust = -0.5, size = 18)),
@@ -500,8 +502,7 @@ gridExtra::grid.arrange(ggplot(leaders, aes(x = Type, y = Age.Event)) +
 
 ```
 
-Figure 1 displays lifespan across different leadership types. Among the Chinese Emperors, Japanese Emperors, and Dalai Lamas, the interquartile ranges of lifespan largely overlap. Popes and U.S. presidents appear to have a slightly higher median lifespan relative to these three groups. This is consistent with the fact that Popes and Presidents are elected much later in their lives, while Chinese Emperors, Japenese Emperors, and Dalai Lamas typically come to power when they are younger (whether due to heredity or identification at a young age). An American citizen who dies in her youth, for example, can never become President due to the age threshold delineated in the Constitution. Consequently, her short survival time can never be reflected in this dataset. 
-
+Figure 1 displays lifespan across different leadership types. Among the Chinese Emperors, Japanese Emperors, and Dalai Lamas, the interquartile ranges of lifespan largely overlap. Popes and U.S. Presidents appear to have a slightly higher median lifespan relative to these three groups. This is consistent with the fact that Popes and Presidents are elected much later in their lives, while Chinese Emperors, Japenese Emperors, and Dalai Lamas typically come to power when they are younger (either due to heredity or identification at a young age). An American citizen who dies in her youth, for example, can never become President due to the age threshold. Consequently, her short survival time can never be reflected in this dataset. 
 
 Figure 2 displays the change in lifespan across time for different types of leadership. It appears that lifespan has increased at similar rates across Chinese and Japanese Emperors, U.S. Presidents and Popes over time. However, for Dalai Lamas, the plot indicates that lifespan has decreased over time. This unexpected trend can be attributed to the untimely demise of several Dalai Lamas in the 19th century, with causes of death ranging from common illnesses to ceiling collapses [[5]][Bibliography]. 
 
@@ -542,13 +543,14 @@ We adopted the following prior distributions for $r,\ \beta_0, \  \beta_1,\  \be
 
 $$
 \begin{aligned}
-&r \sim  \Gamma(10, 0.5)\\ 
-&\beta_0\ \sim N(0,100)\\
-\beta_1,\ &\beta_{2j},\ \beta_{3j} \sim N(0, 1), \ \ \ \  j = 2, 3, 4, 5
+&\,\,\,\,\,\,\,\,\,\,\,\,r \sim  \Gamma(10, 0.5)\\ 
+&\,\,\,\,\,\,\,\,\,\beta_0\sim N(0, 100)\\ 
+\beta_1,\ \beta_{2j}&,\  \beta_{3j} \sim N(0, 1), \  j = 2, 3, 4, 5
 \end{aligned}
 $$
 
-Though there does not exist a strong body of literature to inform these priors, each of our choices resulted from research and consideration of context. For the prior on $\beta_1$, the coefficient corresponding to the $time$ covariate, we decided to use a $N(0, 1)$ distribution. We were motivated to explore this zero-centered, low variance prior due to a study [[4]][Bibliography] citing that lifespan has not significantly changed over the past centuries. Thus, this prior reflects our beliefs that birth year does not heavily impact survival time. For the priors on $\beta_{2j}$, which are coefficients for each of the 4 levels of $type$ (Chinese Emperor, Dalai Lama, Japanese Emperor, and U.S. President), we observed that each leader type is tied to a region. Our research on lifespans across these various regions [[2]][Bibliography] indicates that they are roughly comprable, so we chose a $N(0,1)$ prior for each $\beta_{2j}$. Similarly, we chose a $N(0,1)$ prior for the interaction coefficients $\beta_{3j}$. Here, we did not have a strong enough belief that the coefficients were non-zero and thus chose the same priors as before. For our prior on $\beta_0$, the intercept term, we chose a noninformative $N(0,100)$. This intercept term is tricky to interpret given this parameterization of the Weibull distribution. For this reason, it was safest to impose an high variance prior with mean 0. 
+
+Though there does not exist a strong body of literature to inform these priors, each of our choices resulted from research and consideration of context. For our prior on $\beta_0$, the intercept term, we chose a noninformative $N(0,100)$. As we do not believe the intercept is centered at 0, we imposed a high variance on the prior to allow it to explore the space. For the prior on $\beta_1$, the coefficient corresponding to the $time$ covariate, we decided to use a $N(0, 1)$ distribution. We were motivated to explore this zero-centered, low variance prior due to a study [[4]][Bibliography] citing that lifespan has not significantly changed over the past centuries. Thus, this prior reflects our beliefs that birth year does not heavily impact survival time. For the priors on $\beta_{2j}$, which are coefficients for each of the 4 levels of $type$ (Chinese Emperor, Dalai Lama, Japanese Emperor, and U.S. President), we observed that each leader type is tied to a region. Our research on lifespans across these various regions [[2]][Bibliography] indicates that they are roughly comprable, so we chose a $N(0,1)$ prior for each $\beta_{2j}$. Similarly, we chose a $N(0,1)$ prior for the interaction coefficients $\beta_{3j}$. Here, we did not have a strong enough belief that the coefficients were non-zero and thus chose the same priors as before. 
 
 Our prior on $r$ was informed by the context of the study. Values of $r$ between 0 and 1 indicate a decreasing rate of failure over time, while those greater than 1 represent an increasing rate of failure. Because it can be assumed that the rate of death for world leaders increases with age, we want an $r$ value greater than 1. This belief warranted an informative $\Gamma(10, 0.5)$ prior with mean 5 and variance 2.5, reflecting a relative degree of certainty that $r$ takes on value greater than 1. We perform sensitivity analysis, along with other model diagnostics, in Section 4.2.2. 
 
@@ -589,7 +591,7 @@ post_summary_df %>%
   row_spec(0, bold = TRUE)
 ```
 
-Using JAGS, we ran Model 1 with 250,000 simulations to determine the posterior density $\pi(r, \ \beta_0, \ \beta_1, \ \beta_{2j}, \ \beta_{3j}\, | \,data)$, with results summarized in Table 1. The 95% credible interval is created using the 2.5%  and 97.5% quantiles from the posterior distribution. 
+Using JAGS, we ran Model 1 with 500,000 simulations to determine the posterior density $\pi(r, \ \beta_0, \ \beta_1, \ \beta_{2j}, \ \beta_{3j}\, | \,data)$, with results summarized in Table 1. The 95% credible interval is created using the 2.5%  and 97.5% quantiles from the posterior distribution. 
 
 ## Model Diagnostics 
 
@@ -704,13 +706,21 @@ In Figure 3, we explore the posterior distributions of $\beta_1$ resulting from 
 ### Standardized Residual Plots 
 
 ```{r}
-modelOutput <- Bayesian_Leaders_output$BUGSoutput$summary %>% as.data.frame()
-survivalPredicted <- modelOutput[211:383, ] %>% select("mean", "sd", "2.5%", "50%", "97.5%")
+modelOutput <- Bayesian_Leaders_output$BUGSoutput$summary %>% 
+  as.data.frame() %>% 
+  tibble::rownames_to_column()
+y_pred_cols <- modelOutput  %>% 
+  pull(rowname)
+y_pred_cols <- y_pred_cols[str_detect(y_pred_cols, "y_pred_censored")]
+
+survivalPredicted <- modelOutput %>% 
+  filter(rowname %in% y_pred_cols) %>% 
+  select("mean", "sd", "2.5%", "50%", "97.5%")
 #creating dataframe with useful information (including prediction residuals and standardized residuals)
 leader <- filtered_leaders$Name
 censored_value <- as.factor(filtered_leaders$Censored)
 actual_survival <- filtered_leaders$Age.Event
-time <- filtered_leaders$time
+time <- filtered_leaders$Birth.Date
 survivalPredicted <- survivalPredicted %>%
   mutate(actual = actual_survival) %>%
   mutate(name = leader) %>%
@@ -718,6 +728,7 @@ survivalPredicted <- survivalPredicted %>%
   mutate(Standardized_Residual = (actual-mean)/sd) %>%
   mutate(Residual = actual-mean) %>%
   mutate(time_of_birth = time)
+
 ```
 
 ```{r fig.height=3.75, fig.align='center'}
@@ -733,8 +744,8 @@ survivalPredicted <- survivalPredicted %>%
 ggplot(data = survivalPredicted %>% mutate(Censored = case_when(
   Censored == 1 ~ "Censored",
   TRUE ~ "Non-Censored"
-)), aes(x = time_of_birth, y = Standardized_Residual, color = Censored)) + 
-  geom_point(alpha = 0.8) + 
+)), aes(x = time_of_birth, y = Standardized_Residual, color = Censored))  + 
+  geom_jitter(alpha = 0.8, height = 0.5, width = 0.25) + 
   labs(title = "Standardized Residuals vs Time",
        x = "Time", y = "Standardized Residuals", caption = "Figure 4",
        color = "") + 
@@ -746,6 +757,8 @@ ggplot(data = survivalPredicted %>% mutate(Censored = case_when(
 ```
 
 We also examined the standardized residuals, defined as $std\_r_i = (T_i - E[T_i])/sd[T_i]$, and plot $std\_r_i$ against $time_i$ in Figure 4. The plot shows that the standardized residuals are generally randomly dispersed about 0, where the censored observations are marked by a red dot. As expected, we have large negative standardized residuals for the censored observations because their current ages are lower than their mean predicted ages. 
+
+WALEIUFHASLKFHAKLSDF  add other people in
 
 # Discussion 
 
@@ -798,8 +811,7 @@ Type <- c("Pope", "Chinese Emperor", "Dalai Lama", "Japanese Emperor", "U.S. Pre
 Multiplicative_Scale_Factor <- data.frame(Type, t(data.frame(pope_multiplicative_difference, ce_multiplicative_difference, dl_multiplicative_difference, je_multiplicative_difference, us_multiplicative_difference))) 
 Percent_Difference <- data.frame(Type, t(data.frame(pope_percent_difference, ce_percent_difference, dl_percent_difference, je_percent_difference, us_percent_difference)))
 
-bind_rows(Multiplicative_Scale_Factor,
-          Percent_Difference) %>% 
+Percent_Difference %>% 
   tibble::rownames_to_column() %>% 
   mutate_if(is.numeric, round, digits=3) %>% 
   mutate(Mean = X2, 
@@ -809,8 +821,7 @@ bind_rows(Multiplicative_Scale_Factor,
                     caption = "Multiplicative and Percent Change in Mean Survival Time, from decade increase in Birth Year", 
                     col.names = c("Leadership Type", "Mean", "95% CI")) %>% 
   kable_styling(latex_options = c("hold_position")) %>% 
-  kableExtra::pack_rows("Multiplicative Difference", 1,5) %>% 
-  kableExtra::pack_rows("Percent Difference", 6,10) %>% 
+  kableExtra::pack_rows("Percent Difference", 1,5) %>% 
   row_spec(0, bold = TRUE) %>% 
   column_spec(column = c(2:3), latex_column_spec = "c") %>% 
   column_spec(column = c(1), width = "20em")
@@ -820,12 +831,9 @@ bind_rows(Multiplicative_Scale_Factor,
 
 
 --NOTE TO FILL THIS IN LATER ONCE WE HAVE OUR FINAL VALUES--
-In Table 2, we summarize the percent changes in the mean survival time resulting from a decade increase in birth year for each leader type. Recall that $time$ is a scaled and shifted version of birth year that is measured in centuries. We thus consider the changes resulting from a 0.1 unit increase in $time$ in order to make interprations on a decade scale. As can be seen, the 95% credible intervals for ________, ________, and ________ contain the value 0. Thus, for these types of leaders, we see that a decade increase in birth year does not yield a significant change in expected survival time. In contrast,  the intervals for _______ and ______ do not contain 0. Specifically, ______ for ______ indicates a _______, while _________ for _______ indicates _______. Though these values point toward significance, they are still quite close to 0, signaling that a relationship between birth year and survival time is largely independent of leadership type. Furthermore, across the board, it seems that increases in birth year are largely insignificant. 
+In Table 2, we summarize the percent changes in the mean survival time resulting from a decade increase in birth year for each leader type. Recall that $time$ is a scaled and shifted version of birth year that is measured in centuries. We thus consider the changes resulting from a 0.1 unit increase in $time$ in order to make interprations on a decade scale. As can be seen, the 95% credible intervals for Chinese Emperors, Japanese Emperors, and US Presidents contain the value 0. Thus, for these types of leaders, we see that a decade increase in birth year does not yield a significant change in expected survival time. In contrast, the intervals for Popes and Dalai Lamas do not contain 0. Specifically, ______ for ______ indicates a _______, while _________ for _______ indicates _______. Though these values point toward significance, they are still quite close to 0, signaling that a relationship between birth year and survival time is largely independent of leadership type. 
 
-
-Interpreting the individual effect of $type$ on survival time is not as straightforward as understanding its interaction with $time$. However, if we choose certain values of $time$ to condition on, we can extract meaningful insights. Once conditioned on $time$, we can quantify the multiplicative change that occurs in mean survival time in relation to the baseline level of popes. 
-
-
+Interpreting the individual effect of $type$ on survival time is not as straightforward as understanding its interaction with $time$. However, if we choose certain values of $time$ to condition on, we can extract meaningful insights. Once conditioned on $time$, we can quantify the percent difference in mean survival time of world leaders in relation to the baseline level of Popes.
 
 ```{r}
 #range of birth years 
@@ -944,7 +952,7 @@ Percent_Difference_1900 <- data.frame(Type, t(data.frame(ce_percent_difference_f
 bind_rows(Percent_Difference_1800,
           Percent_Difference_1850, Percent_Difference_1900) %>% 
   kableExtra::kable(booktabs = TRUE,
-                    caption = "Percent Difference in Mean Survival Time For World Leaders as Compared to Popes, Conditioned on Various Birth Years", 
+                    caption = "Percent Difference in Mean Survival Time For World Leaders as Compared to Popes by Birth Year", 
                     col.names = c("Leadership Type", "Mean", "95% CI")) %>% 
   kable_styling(latex_options = c("hold_position")) %>% 
   kableExtra::pack_rows("1800", 1,4) %>% 
@@ -952,9 +960,9 @@ bind_rows(Percent_Difference_1800,
   kableExtra::pack_rows("1900", 9,12) 
 ```
 
-The above table shows, at three different birth years, the expected percent difference in the mean survival time of world leaders as compared to the baseline level of Popes. Across the three birth years, 1800, 1850, and 1900, the expected survial times for Chinese Emperors and Dalai Lamas is significantly lower than that of Popes. For example, a Chinese Emperor born in 1900 is expected to have a survival time that is `r round(ce_percent_difference_ft[2], 2)` % less than a Pope born in the same year. Similarly, a Dalai Lama born in 1900 is expected to have survival time that is `r round(dl_percent_difference_ft[2], 2)` % less than a Pope born in the same year. 
+Table 3 shows, at three different birth years, the expected percent difference in the mean survival time of world leaders as compared to the baseline level of Popes. Across the three birth years, 1800, 1850, and 1900, the expected survial times for Chinese Emperors and Dalai Lamas is significantly lower than that of Popes. For example, a Chinese Emperor born in 1900 is expected to have a survival time that is `r -1 * round(ce_percent_difference_ft[2], 1)`% less than a Pope born in the same year. Similarly, a Dalai Lama born in 1900 is expected to have survival time that is `-1 *r round(dl_percent_difference_ft[2], 1)`% less than a Pope born in the same year. 
 
-Althought the average percent difference in expected survival time for Japanese Emperor and U.S. Presidents as compared to Popes is negative across the three birth years, the corresponding credible intervals contain zero, suggesting that these value are not significnt. Thus, the difference in survival times for these two groups, compared to Popes, when conditioned on specific birth years cannot be commented on concretely. 
+Althought the average percent difference in expected survival time for Japanese Emperor and U.S. Presidents as compared to Popes is negative across the three birth years, the corresponding credible intervals contain zero, suggesting that these values are not significant.
 
 ## Posterior Predictive Distribution 
 
@@ -1005,7 +1013,7 @@ alive_leaders_post %>%
   add_header_above(c(" " = 3, "Posterior Values" = 4))  
 ```
 
-Now we will address the research objective of providing posterior predictions of the lifespans of living leaders. Table 3 displays these point and interval predictions. Since we set the upper bound of the truncated Weibull distribution to 110 years, we expect the upper tails of the 95% credible intervals to be near 110 years. This is the case for all the leaders except the 14th Dalai Lama, whose 97.5% quantile is `r alive_leaders_post %>% filter(rowname == "14th Dalai Lama") %>% pull("97.5%")` years. As previously discussed, there was a string of early deaths among Dalai Lamas in the 19th century, which may have impacted the posterior predictions for the 14th Dalai Lama. Furthermore, Dalai Lamas represent the smallest group of leadership type ($n = 14$), which limits these predictions. 
+Now we will address the research objective of providing posterior predictions of the lifespans of living leaders. Table 4 displays these point and interval predictions. Since we set the upper bound of the truncated Weibull distribution to 110 years, we expect the upper tails of the 95% credible intervals to be near 110 years. This is the case for all the leaders except the 14th Dalai Lama, whose 97.5% quantile is `r alive_leaders_post %>% filter(rowname == "14th Dalai Lama") %>% pull("97.5%")` years. As previously discussed, there was a string of early deaths among Dalai Lamas in the 19th century, which may have impacted the posterior predictions for the 14th Dalai Lama. Furthermore, Dalai Lamas represent the smallest group of leadership type ($n = 14$), which limits these predictions. 
 
 ## Applications for Select Leaders 
 
@@ -1074,6 +1082,9 @@ From the posterior predictive samples for the survival times of the 14th Dalai L
 From the posterior predictive samples for the survival times of President Obama and Emperor Naruhito, we note that in  `r round(100*mean(survival_Obama > survival_Naruhito),1)`% of the simulated samples, Obama is predicted to have a longer lifespan. Consequently, there is a `r round(mean(survival_Obama > survival_Naruhito), 3)` probability that Obama  will have a longer lifespan than Naruhito. Figure 6 indicates that, on average, the posterior predictions for the survival time of President Obama are only `r round(mean(Obama_vs_naruhito, 3))` years above that of Emperor Naruhito. 
 
 # Conclusion & Limitations 
+
+Revisiting our original question of how year of birth and type of leadership are related to a leader’s survival time, our analysis reveals interesting findings. Additionally, having answered the rest of the questions outlined in the introduction, an intuition for understanding the nuances of our results can be explained by some of the limitations in the study. These include, but are not limited to, small sample size (as a whole and by leader type), lack of health-related covariates, underrepresentation of women, unavailability of studies that inform strong prior distributions, and the absence of informative covariates that represent type of death (i.e., the case of the four short-lived, 19th-century Dalai Lamas and the disappearance of Chinese Emperor Jianwen). These limitations greatly undermine the heterogenous notions of “world leaders”; for example, without including health covariates, this limits our empirical knowledge of world leaders and the availability of healthcare in certain areas during a specific time period. We suggest that future studies should explore the lifespans of “unconventional” leaders, who don’t necessarily hold an official position of office, along with established leaders from Latin America, South America, Africa, and Southeast Asia.
+
 
 --Could potentiall add more here--
 Our analysis supports that there is not a significant association between birth year and survival time among various world leaders. Further, our model has found that a leader's survival time is not dependent on their type of leadership. 
@@ -1359,5 +1370,36 @@ dl_int <- exp(model$mean[8])
 je_int <- exp(model$mean[9])
 #US Pres
 us_int <- exp(model$mean[10])
+```
+
+## Predictions for People 
+
+```{r  fig.align='center', fig.width=12}
+death_sun <- "1925-03-12"
+death_WC <- "1965-01-24"
+age_sun <- decimal_date(as.Date(death_sun)) - decimal_date(as.Date(birthdate_sun))
+age_WC <- decimal_date(as.Date(death_WC)) - decimal_date(as.Date(birthdate_WC))
+survivalWC <- Bayesian_Leaders_output$BUGSoutput$sims.matrix[, "survival_WC"] 
+survival_sun <- Bayesian_Leaders_output$BUGSoutput$sims.matrix[, "survival_sun"] 
+gridExtra::grid.arrange(
+  ggplot() + 
+    geom_histogram(aes(x = survival_sun, y = ..density..), bins=20) + 
+    geom_vline(xintercept = age_sun, color = "blue") + 
+    annotate("text", x = age_sun +17, y = 0.0255, label = paste0("Age at Death: \n", round(age_sun,0))) + 
+    labs(title = "Sun Yat-sen (Former President of Republic of China)",
+         y = "Predictive Probability Density", 
+         x = "Lifespan (years)",
+         caption = "Figure 5") + 
+    theme(plot.caption = element_text(hjust = 0.5, vjust = -0.5, size = 18)),
+  ggplot() + 
+    geom_histogram(aes(x = survivalWC, y = ..density..), bins=20) + 
+    geom_vline(xintercept = age_WC , color = "blue") + 
+    annotate("text", x = age_WC + 13, y = 0.020, label = paste0("Age at Death: \n", round(age_WC,0))) + 
+    labs(title = "Winston Churchill (Former UK Prime Minister)",
+         x = "Lifespan (years)",
+         caption = "Figure 5") + 
+    theme(axis.title.y = element_blank(),
+          plot.caption = element_text(hjust = 0.5, vjust = -0.5, size = 18)),
+  ncol=2,top = textGrob("Posterior Prediction of Lifespan",gp=gpar(fontsize=20)))
 ```
 
