@@ -823,15 +823,13 @@ Percent_Difference %>%
   kable_styling(latex_options = c("hold_position")) %>% 
   kableExtra::pack_rows("Percent Difference", 1,5) %>% 
   row_spec(0, bold = TRUE) %>% 
-  column_spec(column = c(2:3), latex_column_spec = "c") %>% 
-  column_spec(column = c(1), width = "20em")
+  column_spec(column = c(2:3), latex_column_spec = "c") %>%   column_spec(column = c(1), width = "20em")
 
 
 ```
 
 
---NOTE TO FILL THIS IN LATER ONCE WE HAVE OUR FINAL VALUES--
-In Table 2, we summarize the percent changes in the mean survival time resulting from a decade increase in birth year for each leader type. Recall that $time$ is a scaled and shifted version of birth year that is measured in centuries. We thus consider the changes resulting from a 0.1 unit increase in $time$ in order to make interprations on a decade scale. As can be seen, the 95% credible intervals for Chinese Emperors, Japanese Emperors, and US Presidents contain the value 0. Thus, for these types of leaders, we see that a decade increase in birth year does not yield a significant change in expected survival time. In contrast, the intervals for Popes and Dalai Lamas do not contain 0. Specifically, ______ for ______ indicates a _______, while _________ for _______ indicates _______. Though these values point toward significance, they are still quite close to 0, signaling that a relationship between birth year and survival time is largely independent of leadership type. 
+In Table 2, we summarize the percent changes in the mean survival time resulting from a decade increase in birth year for each leader type. Recall that $time$ is a scaled and shifted version of birth year that is measured in centuries. We thus consider the changes resulting from a 0.1 unit increase in $time$ in order to make interprations on a decade scale. As can be seen, the 95% credible intervals for Chinese Emperors, Japanese Emperors, and US Presidents contain the value 0. Thus, for these types of leaders, we see that a decade increase in birth year does not yield a significant change in expected survival time. In contrast, the intervals for Popes and Dalai Lamas do not contain 0. Specifically, for a given decade increase in birth year, Dalai Lamas exhibit a decrease in expected survial time while Popes exhibit an increase. Though the point and interval estimates for these values point toward significance, they are still quite close to 0, signaling that a relationship between birth year and survival time is largely independent of leadership type. 
 
 Interpreting the individual effect of $type$ on survival time is not as straightforward as understanding its interaction with $time$. However, if we choose certain values of $time$ to condition on, we can extract meaningful insights. Once conditioned on $time$, we can quantify the percent difference in mean survival time of world leaders in relation to the baseline level of Popes.
 
