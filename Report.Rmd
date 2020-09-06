@@ -324,6 +324,11 @@ priors <- "
   r ~ dgamma(10,0.5)
   "
 Bayesian_Leaders_output <- generate_model(priors,"leaders_model_r_10_5e-1_beta_1.Rdata",500000)
+upper_age = 100
+Bayesian_Leaders_output_100 <- generate_model(priors,"leaders_model_r_10_5e-1_beta_1_upper_100.Rdata")
+upper_age = 105
+Bayesian_Leaders_output_105 <- generate_model(priors,"leaders_model_r_10_5e-1_beta_1_upper_105.Rdata")
+upper_age = 110
 ```
 
 
