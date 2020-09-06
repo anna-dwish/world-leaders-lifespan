@@ -127,25 +127,46 @@ x_2 <- filtered_leaders$Type %>% as.factor() %>% relevel("Pope")
 # predictive info for Francis, Obama, and Naruhito
 # 1 = Pope, 2 = ChineseEmp, 3 = DalaiLama, 4 = JapanEmp, 5 = UsPres
 #Dalai Lama
-time_DL <- 6.3549350 - mean(filtered_leaders$time)
+time_DL <- leaders[leaders$Name == "14th Dalai Lama (Tenzin Gyatso)",]$time - mean(filtered_leaders$time)
 type_DL <- 3
-present_age_DL <- 85.153833
+present_age_DL <- leaders[leaders$Name == "14th Dalai Lama (Tenzin Gyatso)",]$Age.Event
+
 
 #Francis
-time_Francis <- 6.3694456 - mean(filtered_leaders$time)
+time_Francis <- leaders[leaders$Name == "Francis",]$time - mean(filtered_leaders$time)
 type_Francis <- 0
-present_age_Francis <- 83.702772
+present_age_Francis <- leaders[leaders$Name == "Francis",]$Age.Event
 
 #Obama
-time_Obama <- 6.6157426 - mean(filtered_leaders$time)
+time_Obama <- leaders[leaders$Name == "Barack Obama",]$time - mean(filtered_leaders$time)
 type_Obama <- 5
-present_age_Obama <- 59.073066
+present_age_Obama <- leaders[leaders$Name == "Barack Obama",]$Age.Event
 
 #Naruhito
-time_Naruhito <- 6.6012868 - mean(filtered_leaders$time)
+time_Naruhito <- leaders[leaders$Name == "Naruhito (Emperor Reiwa)",]$time - mean(filtered_leaders$time)
 type_Naruhito <- 4
-present_age_Naruhito <- 60.518652
+present_age_Naruhito <- leaders[leaders$Name == "Naruhito (Emperor Reiwa)",]$Age.Event
+```
 
+```{r}
+## external validation - Churchill + Sun Yat-sen
+## assuming Churchill is similar to US President and Sun is similar to Chinese emperor, 
+## so Churchill's type is 5 and Sun's type is 2
+cent_date <- "1300-01-01" %>% as.Date()
+
+birthdate_WC <- "1874-11-30" %>% as.Date()
+time_WC <- (decimal_date(birthdate_WC) - decimal_date(cent_date)) / 100
+type_WC <- 5
+time_WC_cent <- time_WC - mean(filtered_leaders$time)
+
+birthdate_sun <- "1866-11-12" %>% as.Date()
+time_sun <- (decimal_date(birthdate_sun) - decimal_date(cent_date)) / 100
+type_sun <- 2
+time_sun_cent <- time_sun - mean(filtered_leaders$time)
+```
+
+```{r}
+## censoring limits
 present_age <- ifelse(censored == 0, 0, filtered_leaders$Age.Event)
 upper_age <- 110
 ```
@@ -157,7 +178,7 @@ data_leaders <- list("n",
                      "survival",
                      "censoring_limits",
                      "x_1",
-                     "x_2", 
+                     "x_2",
                      "present_age",
                      "upper_age",
                      "time_Francis",
@@ -170,7 +191,12 @@ data_leaders <- list("n",
                      "present_age_DL",
                      "time_Naruhito",
                      "type_Naruhito",
-                     "present_age_Naruhito")
+                     "present_age_Naruhito",
+                     "time_WC_cent", 
+                     "type_WC",
+                     "time_sun_cent",
+                     "type_sun"
+)
 ```
 
 ```{r Generate Model Text}
@@ -222,6 +248,16 @@ generate_model_text = function(priors=""){
   beta_DL <- beta_0 + beta_1*time_DL + beta_type[type_DL] + beta_int[type_DL]*time_DL
   mu_DL <- exp(beta_DL)
   survival_DL ~ dweib(r, mu_DL)T(present_age_DL, upper_age)
+  
+  beta_WC <- beta_0 + beta_1*time_WC_cent + beta_type[type_WC] + 
+    beta_int[type_WC]*time_WC_cent
+  mu_WC <- exp(beta_WC)
+  survival_WC ~ dweib(r, mu_WC)T(0, upper_age)
+  
+  beta_sun <- beta_0 + beta_1*time_sun_cent + beta_type[type_sun] + 
+    beta_int[type_sun]*time_sun_cent
+  mu_sun <- exp(beta_sun)
+  survival_sun ~ dweib(r, mu_sun)T(0, upper_age)
   "
   
   model_text <- paste("model{ ",likelihood, priors, predicted_survivals, "}")
@@ -232,7 +268,7 @@ generate_model_text = function(priors=""){
 
 ```{r Generate or Load Model}
 #The following utility function takes in the priors and name of the model file the user intends to create before running RJAGS. In the case the model_name exists in the current working directory, this function will instead load in that model and return it for further exploration.
-generate_model = function(priors,model_name,num_iter = 250000){
+generate_model = function(priors,model_name,num_iter = 250){
   model_file <- generate_model_text(priors)
   if (file.exists(model_name)) {
     load(file = model_name)
@@ -249,6 +285,8 @@ generate_model = function(priors,model_name,num_iter = 250000){
                                                          "survival_Obama",
                                                          "survival_Naruhito",
                                                          "survival_DL",
+                                                         "survival_WC",
+                                                         "survival_sun",
                                                          "alpha_0",
                                                          "alpha_1",
                                                          "percentage_increase_birthyr",
@@ -285,7 +323,7 @@ priors <- "
    # prior on r 
   r ~ dgamma(10,0.5)
   "
-Bayesian_Leaders_output <- generate_model(priors,"leaders_model_r_10_5e-1_beta_1.Rdata",500000)
+Bayesian_Leaders_output <- generate_model(priors,"leaders_model_r_10_5e-1_beta_1.Rdata",500)
 ```
 
 
@@ -692,7 +730,7 @@ gridExtra::grid.arrange(
     geom_vline(xintercept = q_sun[-2], color = "red", linetype = 2) + 
     #annotate("text", x = age_sun + 15, y = 0.0255, label = paste0("Age at Death: \n", round(age_sun,0))) + 
     labs(title = "Sun Yat-sen (Former President of Republic of China)",
-          subtitle = "Age of Death: 58",
+         subtitle = "Age of Death: 58",
          y = "Predictive Probability Density", 
          x = "Lifespan (years)",
          caption = "Figure 5") + 
@@ -910,7 +948,7 @@ bind_rows(Percent_Difference_1800,
   kable_styling(latex_options = c("hold_position")) %>% 
   kableExtra::pack_rows("1800", 1,4) %>% 
   kableExtra::pack_rows("1900", 5,8) #%>% 
-  #kableExtra::pack_rows("1900", 9,12) 
+#kableExtra::pack_rows("1900", 9,12) 
 ```
 
 Table 3 shows, at three different birth years, the expected percent difference in the mean survival time of world leaders as compared to the baseline level of Popes. Across the three birth years, 1800, 1850, and 1900, the expected survial times for Chinese Emperors and Dalai Lamas is significantly lower than that of Popes. For example, a Chinese Emperor born in 1900 is expected to have a survival time that is `r -1 * round(ce_percent_difference_ft[2], 1)`% less than a Pope born in the same year. Similarly, a Dalai Lama born in 1900 is expected to have survival time that is `r -1 *round(dl_percent_difference_ft[2], 1)`% less than a Pope born in the same year. 
@@ -1339,27 +1377,27 @@ upper_vals <- c("100","105","")
 sensitivity_plot_trunc = function(param, renamed_param = NA) {
   df = data.frame()
   for (curr_upper in upper_vals) {
-      upperText = paste0("_upper_",curr_upper)
-      if (curr_upper == ""){
-        upperText = ""
-      }
-      file_name = paste0("leaders_model_r_10_5e-1_beta_1",upperText,".Rdata")
-      load(file_name)
-      
-      curr_param = param
-      rjags.df <- rjags_model$BUGSoutput$sims.matrix %>% as.data.frame()
-      if (!is.na(renamed_param)){
-        colnames(rjags.df)[colnames(rjags.df) == param] = renamed_param
-        curr_param = renamed_param
-      }
-      
-      param_df = rjags.df %>%
-        select(curr_param) %>% 
-        mutate(curr_upper = case_when(
-          curr_upper == "" ~ "110",
-          TRUE ~ as.character(curr_upper)),
-          priors = paste0("Upper Bound = ",curr_upper," years"))
-      df = df %>% bind_rows(param_df)
+    upperText = paste0("_upper_",curr_upper)
+    if (curr_upper == ""){
+      upperText = ""
+    }
+    file_name = paste0("leaders_model_r_10_5e-1_beta_1",upperText,".Rdata")
+    load(file_name)
+    
+    curr_param = param
+    rjags.df <- rjags_model$BUGSoutput$sims.matrix %>% as.data.frame()
+    if (!is.na(renamed_param)){
+      colnames(rjags.df)[colnames(rjags.df) == param] = renamed_param
+      curr_param = renamed_param
+    }
+    
+    param_df = rjags.df %>%
+      select(curr_param) %>% 
+      mutate(curr_upper = case_when(
+        curr_upper == "" ~ "110",
+        TRUE ~ as.character(curr_upper)),
+        priors = paste0("Upper Bound = ",curr_upper," years"))
+    df = df %>% bind_rows(param_df)
   }
   return(df) 
 }
