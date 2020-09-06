@@ -64,7 +64,8 @@ knitr::opts_chunk$set(echo = FALSE,
 ggplot2::theme_set(new = theme_bw())
 ```
 
-```{r }
+```{r Load & Clean Data}
+## The following code updates the dataset to ensure timestamps reflect the date of this study, 8/31/2020
 load("Leaders.Rdata")
 leaders <- as.data.frame(leaders)
 #head(leaders)
@@ -104,7 +105,9 @@ filtered_leaders = leaders %>%
 #Bayesian_Leaders_output <- rjags_model
 ```
 
-```{r}
+```{r Covariates from Filtered Dataset}
+## The following code sets up the covariates and censoring information for the soon to-be-created models, after removing the ones we
+## intend to make cast predictions for
 alive = c("Barack Obama","Francis","14th Dalai Lama (Tenzin Gyatso)", "Naruhito (Emperor Reiwa)")
 filtered_leaders = leaders %>% 
   filter(!Name %in% alive)
@@ -120,7 +123,7 @@ x_1 <- filtered_leaders$time - mean(filtered_leaders$time)
 x_2 <- filtered_leaders$Type %>% as.factor() %>% relevel("Pope")
 ```
 
-```{r}
+```{r Predictive Information}
 # predictive info for Francis, Obama, and Naruhito
 # 1 = Pope, 2 = ChineseEmp, 3 = DalaiLama, 4 = JapanEmp, 5 = UsPres
 #Dalai Lama
@@ -147,7 +150,8 @@ present_age <- ifelse(censored == 0, 0, filtered_leaders$Age.Event)
 upper_age <- 110
 ```
 
-```{r}
+```{r Stored Variables in Models}
+## The following code stores the list of variables we wish to store in the model Rdata files from the RJAGS code
 data_leaders <- list("n",
                      "censored",
                      "survival",
@@ -169,7 +173,9 @@ data_leaders <- list("n",
                      "present_age_Naruhito")
 ```
 
-```{r}
+```{r Generate Model Text}
+#RJAGs allows users to input either the text of the model they hope to create (where information such as likelihood, priors, and predictive information instructions are necessary) or input an R function. To minimize code duplication, the following method concatenates the likelihood information, prior specification, and predictive information. Anyone who wishes to build off of these results can input the priors (see sections Model 1a - Model 6b for various examples).
+
 generate_model_text = function(priors=""){
   model_file <- tempfile()
   
@@ -224,7 +230,8 @@ generate_model_text = function(priors=""){
 }
 ```
 
-```{r}
+```{r Generate or Load Model}
+#The following utility function takes in the priors and name of the model file the user intends to create before running RJAGS. In the case the model_name exists in the current working directory, this function will instead load in that model and return it for further exploration.
 generate_model = function(priors,model_name,num_iter = 250000){
   model_file <- generate_model_text(priors)
   if (file.exists(model_name)) {
@@ -263,15 +270,20 @@ generate_model = function(priors,model_name,num_iter = 250000){
 ```{r}
 ## Model From Paper, Original Id: 5a
 priors <- "
+  # prior on leadership type coefficients (notice there is no need to specify a prior for the baseline)
   for(i in 2:5) {
     beta_type[i] ~ dnorm(0.0, 1)
     beta_int[i] ~ dnorm(0.0, 1)
   }
   
+  # prior on intercept
   beta_0 ~ dnorm(0.0, 0.01)
+  
+  # prior on time variable
   beta_1 ~ dnorm(0.0, 1)
   
-  r ~ dgamma(10,0.5) # Prior on r 
+   # prior on r 
+  r ~ dgamma(10,0.5)
   "
 Bayesian_Leaders_output <- generate_model(priors,"leaders_model_r_10_5e-1_beta_1.Rdata",500000)
 ```
@@ -475,6 +487,7 @@ Below we will present some preliminary visualizations regarding our covariates o
 ## Exploratory Data Analysis 
 
 ```{r fig.align='center', fig.width=12, fig.height=3.75}
+# The following code generates boxplots of lifespan across leadership types along with a scatter plot showing the trends in lifespan over time
 gridExtra::grid.arrange(ggplot(leaders, aes(x = Type, y = Age.Event)) + 
                           geom_boxplot() + 
                           labs(title = "Lifespans vs Type of Leader", 
@@ -552,6 +565,7 @@ Our prior on $r$ was informed by the context of the study. Values of $r$ between
 ## Summary of Parameters
 
 ```{r}
+# The following code generates a table output for the summary of the parameter and coefficient values
 post_summary_df <- Bayesian_Leaders_output$BUGSoutput$summary %>% 
   as.data.frame() 
 rows <- c("r", "beta_0", "beta_1", 
@@ -591,66 +605,20 @@ $\pi(r,\beta_0,\beta_1, \beta_{2j},\beta_{3j}\, | \,data)$, with results summari
 
 ### Convergence & Autocorrelation Checks 
 
+The traceplots, lag-1 autocorrelation plots, as well as the $\hat{R}$ and $n_{eff}$ values, can be found in the Appendix.
+
 To determine if our model has converged sufficiently, we first examine traceplots for each of the parameters. Traceplots with random scatter around a mean value indicates that the model has converged. $\hat{R}$ values provide an estimate of convergence based on the variance of an estimated parameter between chains, and the variance within a chain. The closer the $\hat{R}$ value to 1, the better the model has converged. Traceplots show the chains have mixed well and the $\hat{R}$ values are all below 1.05, indicating that our model has sufficiently converged. 
 
 To determine if our model has reached a stationary distribution, we first looked at autocorrelation plots. The lag-1 autocorrelation plots peak at the beginning and then bounce around 0. In addition, $n_{eff}$ gives a measure of effective sample size. Ideally, we want this number to equal the number of posterior draws, or at least 200. The autocorrelation plots and large $n_{eff}$ values indicate that our parameters have sufficiently reached stationarity.
 
-The traceplots, lag-1 autocorrelation plots, as well as the $\hat{R}$ and $n_{eff}$ values, can be found in the Appendix.
-
 ### Sensitivity Analysis 
 
-```{r fig.width=12, fig.align='center', eval=FALSE}
-r_vals <- c("1e-3", "1", "10_5e-1", "25_2e-1")
-b_vals <- c("1", "100")
-sensitivity_plot = function(param, renamed_param = NA) {
-  df = data.frame()
-  for (curr_r in r_vals) {
-    for (curr_b in b_vals) {
-      file_name = paste0("leaders_model_r_",curr_r,"_beta_",curr_b,".Rdata")
-      load(file_name)
-      
-      curr_param = param
-      rjags.df <- rjags_model$BUGSoutput$sims.matrix %>% as.data.frame()
-      if (!is.na(renamed_param)){
-        colnames(rjags.df)[colnames(rjags.df) == param] = renamed_param
-        curr_param = renamed_param
-      }
-      
-      param_df = rjags.df %>%
-        select(curr_param) %>% 
-        mutate(curr_r = case_when(
-          curr_r == "1e-3" ~ "0.001",
-          curr_r == "10_5e-1" ~ "10_0.5",
-          curr_r == "25_2e-1" ~ "25_0.2",
-          TRUE ~ as.character(curr_r)),
-          priors = ifelse(str_detect(curr_r, "_"),
-                          paste0("r~Ga(", str_split(curr_r, "_")[[1]][1], ",", str_split(curr_r, "_")[[1]][2], "),B~N(0,", curr_b, ")"),
-                          
-                          paste0("r~Exp(", curr_r, "),B~N(0,", curr_b, ")")
-          ))
-      df = df %>% bind_rows(param_df)
-    }
-  }
-  return(df) 
-}
-#Bayesian_Leaders_output$BUGSoutput$summary %>% as.data.frame() %>% select(mean)
-mean_vals <- Bayesian_Leaders_output$BUGSoutput$summary %>% as.data.frame() %>% select(mean)
-predicted_beta_1 <- c(mean_vals["beta_1",])
-
-sensitivity_plot("beta_1")  %>% 
-  ggplot() + 
-  geom_density(aes(x = beta_1)) + geom_vline(xintercept = predicted_beta_1, color = "red") + 
-  labs(title = expression(paste("Sensitivity Analysis for Different Priors on r and ", beta)),
-       x = expression(beta[1]),caption="Figure 3") + 
-  theme(plot.caption = element_text(hjust = 0.5, vjust = -0.5, size = 16)) + 
-  facet_wrap(priors~.,  scales = "free_y", nrow = 2) 
-``` 
-
-In Figure 3, we explore the posterior distributions of $\beta_1$ resulting from various priors, where the red line indicates our posterior mean estimate of $\beta_1$. The posterior distributions are roughly the same for the four different $r$ priors, each paired with two different priors on the $\beta$ coefficients. This indicates that the results of our model are not sensitive to prior choices. 
+In Figures 7-22 in the Appendix, we explore the posterior distributions of our $r$ parameter, coefficients, and predictions resulting from various priors, where the red lines indicate our posterior mean estimate from our final models. The posterior distributions are roughly the same for the four different $r$ priors, each paired with two different priors on the $\beta$ coefficients. The final plot also compares the posterior distribution of our $r$ and the *time* coefficient. 
 
 ### Standardized Residual Plots 
 
 ```{r }
+# The following code calculates the standardized residuals from our final model
 modelOutput <- Bayesian_Leaders_output$BUGSoutput$summary %>% 
   as.data.frame() %>% 
   tibble::rownames_to_column()
@@ -685,6 +653,7 @@ survivalPredicted <- survivalPredicted %>%
 ```
 
 ```{r fig.height=3.75, fig.align='center', eval=FALSE}
+# The following code plots the standardized residuals
 ggplot(data = survivalPredicted %>% mutate(Censored = case_when(
   Censored == 1 ~ "Censored",
   TRUE ~ "Non-Censored"
@@ -704,6 +673,7 @@ We also examined the standardized residuals, defined as $std\_r_i = (T_i - E[T_i
 ### External Validation 
 
 ```{r fig.align='center', fig.width=12}
+# The following code plots the results of the expected lifepsans for a British Prime Minister & Chinese government leader
 birthdate_sun <- "1866-11-12"
 death_sun <- "1925-03-12"
 birthdate_WC <- "1874-11-30" 
@@ -744,7 +714,7 @@ gridExtra::grid.arrange(
 
 To further validate our model, we display posterior distributions for Sun Yat-sen, a Chinese leader, in Figure 5 and Winston Churchill, a UK Prime Minister, in Figure 6. We assigned the $type$ of Sun Yat-sen to be that of Chinese Emperors (2), and the $type$ of Winston Churchill to be that of US Presidents (5), since it the role of a Prime Minister and a President are similar in nature. 
 
-These out-of-sample predictions are of somewhat high quality. The blue line indicates the leader's age at death, while the solid red line indicates the posterior median lifespan with corresponding 95% credible intervals shown by the dotted red lines. Both of the leader's true age at death is captured between the median and the 97.5% quantile, with the posterior predictions for Sun doing better than that of Churchill's. This may because the model does not have a $type$ category for UK Prime Ministers and that Churchill lived longer than a majority of US Presidents. (idk  if this makes sense)
+These out-of-sample predictions provide reasonable estimates and capture the true lifespans. The blue line indicates the leader's age at death, while the solid red line indicates the posterior median lifespan with corresponding 95% credible intervals shown by the dotted red lines. Both of the leader's true age at death is captured between the median and the 97.5% quantile, with the posterior predictions for Sun doing better than that of Churchill's. This may be because Churchill lived longer than a majority of US Presidents. 
 
 # Discussion 
 
@@ -761,6 +731,7 @@ $$
 where $\alpha_k = - \frac{\beta_k}{r}$ for any $k$. When exponentiating both sides of this expression, we observe that an increase in one unit of $time$ results in a multiplicative change of $exp(\alpha_1)$ in the mean survival time for a Pope. We can further compute the *percentage* increase in the mean survival time of a Pope given a unit increase in $time$ by computing $100 * (exp(\alpha_1) − 1)$. A similar computation can be performed to understand the effect of increasing time on mean survival time across leader types. This provides an interpretable quantification of the interaction term, $type*time$ appearing in the expression for $log(\mu)$.
 
 ```{r}
+# The following code calculates the multiplicative difference in lifespans across leadership type we expect if a decade passed
 model <- Bayesian_Leaders_output$BUGS$summary %>% as.data.frame()
 
 #Pope
@@ -816,6 +787,7 @@ In Table 2, we summarize the percent changes in the mean survival time resulting
 Interpreting the individual effect of $type$ on survival time is not as straightforward as understanding its interaction with $time$. However, if we choose certain values of $time$ to condition on, we can extract meaningful insights. Once conditioned on $time$, we can quantify the percent difference in mean survival time of world leaders in relation to the baseline level of Popes.
 
 ```{r}
+# The following code walks through the way we derived predictions to answer the posed questions in the introduction
 #range of birth years 
 #POPES: 1324-1936
 #CHINESE EMPEROR: 1328-1906
@@ -948,6 +920,7 @@ Althought the average percent difference in expected survival time for Japanese 
 ## Posterior Predictive Distribution 
 
 ```{r}
+# The following code displays the plots of our posterior predictive distributions
 alive_leaders = leaders %>% 
   filter(Name %in% alive) %>% 
   bind_rows(filtered_leaders %>% 
@@ -990,11 +963,12 @@ alive_leaders_post %>%
   add_header_above(c(" " = 3, "Posterior Values" = 4))  
 ```
 
-Now we will address the research objective of providing posterior predictions of the lifespans of living leaders. Table 4 displays these point and interval predictions. Since we set the upper bound of the truncated Weibull distribution to 110 years, we expect the upper tails of the 95% credible intervals to be near 110 years. This is the case for all the leaders except the 14th Dalai Lama, whose 97.5% quantile is `r alive_leaders_post %>% filter(rowname == "14th Dalai Lama") %>% pull("97.5%")` years, and Emperor Jiawen, whose 97.5% quantile is `r alive_leaders_post %>% filter(rowname == "Jianwen Emperor") %>% pull("97.5%")` years. As previously discussed, there was a string of early deaths among Dalai Lamas in the 19th century, which may have impacted the posterior predictions for the 14th Dalai Lama. Furthermore, Dalai Lamas represent the smallest group of leadership type ($n = 14$), which limits these predictions. Additionally, Chinese Emperors generally have a lower life expectancy than other world leaders. Chinese Emperor Jiawen also disappeared when he was 24, which accounts for a lower 97.5% quantile compared to the other leaders. (does this maek sense)
+Now we will address the research objective of providing posterior predictions of the lifespans of living leaders. Table 4 displays these point and interval predictions. Since we set the upper bound of the truncated Weibull distribution to 110 years, we expect the upper tails of the 95% credible intervals to be near 110 years. This is the case for all the leaders except the 14th Dalai Lama, whose 97.5% quantile is `r alive_leaders_post %>% filter(rowname == "14th Dalai Lama") %>% pull("97.5%")` years, and Emperor Jiawen, whose 97.5% quantile is `r alive_leaders_post %>% filter(rowname == "Jianwen Emperor") %>% pull("97.5%")` years. As previously discussed, there was a string of early deaths among Dalai Lamas in the 19th century, which may have impacted the posterior predictions for the 14th Dalai Lama. Furthermore, Dalai Lamas represent the smallest group of leadership type ($n = 14$), which limits these predictions. Additionally, Chinese Emperors generally have a lower life expectancy than other world leaders. Chinese Emperor Jiawen also disappeared when he was 24, which accounts for a lower 97.5% quantile compared to the other leaders.
 
 ## Applications for Select Leaders
 
 ```{r fig.align='center', fig.width=12}
+# The following code calculates the answers to the third question posed in the intro by plotting the sampled lifespan values from the posterior
 #probability that Obama will live longer thatn Naruhito
 survival_DL <- Bayesian_Leaders_output$BUGSoutput$sims.matrix[,"survival_DL"]
 survival_Francis <-Bayesian_Leaders_output$BUGSoutput$sims.matrix[,"survival_Francis"]
@@ -1071,7 +1045,8 @@ knitr::opts_chunk$set(eval = FALSE,
 
 ## Traceplots and Autocorrelation Plots
 
-```{r fig.height=4, fig.align='center'}
+```{r eval=TRUE, fig.height=4, fig.align='center'}
+# The following code chunks plots the convergence of the various parameters & coeffs in this model
 tidybayes::gather_draws(Bayesian_Leaders_output %>% coda::as.mcmc(), r,  beta_0, beta_1) %>% 
   ungroup() %>% 
   # tidyr::gather(key, value, "beta_0", "beta_1", "r", -i) %>% 
@@ -1083,7 +1058,7 @@ tidybayes::gather_draws(Bayesian_Leaders_output %>% coda::as.mcmc(), r,  beta_0,
 ```
 
 
-```{r fig.height=4, fig.align='center'}
+```{r eval=TRUE, fig.height=4, fig.align='center'}
 tidybayes::gather_draws(Bayesian_Leaders_output %>% coda::as.mcmc(), beta_type[i]) %>%
   ungroup() %>%
   filter(i > 1) %>%
@@ -1097,7 +1072,7 @@ tidybayes::gather_draws(Bayesian_Leaders_output %>% coda::as.mcmc(), beta_type[i
 ```
 
 
-```{r fig.height=4, fig.align='center'}
+```{r eval=TRUE, fig.height=4, fig.align='center'}
 tidybayes::gather_draws(Bayesian_Leaders_output %>% coda::as.mcmc(), beta_int[i]) %>% 
   ungroup() %>% 
   filter(i > 1) %>% 
@@ -1111,7 +1086,8 @@ tidybayes::gather_draws(Bayesian_Leaders_output %>% coda::as.mcmc(), beta_int[i]
 ```
 
 
-```{r fig.width=3}
+```{r eval=TRUE, fig.width=3}
+# The following function plots the lag 1 autocorrelation for the input paramater
 plot_acf <- function(parameter) {
   Bayesian_Leaders_output$BUGSoutput$sims.matrix %>%
     as_tibble() %>%
@@ -1126,7 +1102,8 @@ for (param in c("beta_0", "beta_1")) {
 ## $\hat{R}$ and $n_{eff}$
 
 Note that $n_{eff}$ values for $\beta_{21}$ and $\beta_{31}$ are 1, because forced these parameters to be 0 to reflect the baseline category of $type$. 
-```{r}
+```{r eval=TRUE}
+# The following displays the effective sample size values for the coeffs and parameters in this model, along with the Rhat values
 rhat_neff = Bayesian_Leaders_output$BUGSoutput$summary %>% as.data.frame() %>% select(Rhat, `n.eff`) 
 rows <- c("r", "beta_0", "beta_1", 
           "beta_type[1]", "beta_type[2]", "beta_type[3]", "beta_type[4]", "beta_type[5]",
@@ -1139,9 +1116,47 @@ rhat_neff[rows,] %>%
   kable_styling(position = "center")
 ```
 
-## Further Sensitivity Analysis
+## Sensitivity Analysis: Parameters, Coefficients, Predictions Over r and Beta Priors
 
-```{r}
+```{r eval=TRUE}
+# The following code generates a table of posterior distributions of model coeffs and parameters across the different priors examined
+r_vals <- c("1e-3", "1", "10_5e-1", "25_2e-1")
+b_vals <- c("1", "100")
+sensitivity_plot = function(param, renamed_param = NA) {
+  df = data.frame()
+  for (curr_r in r_vals) {
+    for (curr_b in b_vals) {
+      file_name = paste0("leaders_model_r_",curr_r,"_beta_",curr_b,".Rdata")
+      load(file_name)
+      
+      curr_param = param
+      rjags.df <- rjags_model$BUGSoutput$sims.matrix %>% as.data.frame()
+      if (!is.na(renamed_param)){
+        colnames(rjags.df)[colnames(rjags.df) == param] = renamed_param
+        curr_param = renamed_param
+      }
+      
+      param_df = rjags.df %>%
+        select(curr_param) %>% 
+        mutate(curr_r = case_when(
+          curr_r == "1e-3" ~ "0.001",
+          curr_r == "10_5e-1" ~ "10_0.5",
+          curr_r == "25_2e-1" ~ "25_0.2",
+          TRUE ~ as.character(curr_r)),
+          priors = ifelse(str_detect(curr_r, "_"),
+                          paste0("r~Ga(", str_split(curr_r, "_")[[1]][1], ",", str_split(curr_r, "_")[[1]][2], "),B~N(0,", curr_b, ")"),
+                          
+                          paste0("r~Exp(", curr_r, "),B~N(0,", curr_b, ")")
+          ))
+      df = df %>% bind_rows(param_df)
+    }
+  }
+  return(df) 
+}
+``` 
+
+```{r eval=TRUE}
+# The following code chunks display the sensitivity of the input parameter relative to other priors we examined
 mean_vals <- Bayesian_Leaders_output$BUGSoutput$summary %>% as.data.frame() %>% select(mean)
 
 get_mean_val <- function(param, renamed_param=NA){
@@ -1172,142 +1187,198 @@ predicted_JapanEmpTime <- get_mean_val("beta_type[4]","JapanEmpTime")
 predicted_USPresTime <- get_mean_val("beta_type[5]","USPresTime")
 ```
 
-```{r}
+
+```{r eval=TRUE, fig.width=12, fig.align='center'}
 sensitivity_plot("r")  %>% 
   ggplot() + 
   geom_density(aes(x = r)) + geom_vline(xintercept = predicted_r, color = "red") + 
-  labs(title = expression(paste("r : Sensitivity Analysis for Different Priors on r and ", beta)),
-       x = expression(beta[1]),caption="Figure 7.1") + 
+  labs(title = expression(paste("r : Sensitivity Analysis Over r and ", beta)),
+       x = expression(beta[1]),caption="Figure 7") + 
   theme(plot.caption = element_text(hjust = 0.5, vjust = -0.5, size = 16)) + 
   facet_wrap(priors~.,  scales = "free_y", nrow = 2) 
 ```
 
-```{r}
-# sensitivity_plot("beta_1")  %>%
-#   ggplot() +
-#   geom_density(aes(x = beta_1)) + geom_vline(xintercept = predicted_beta_1, color = "red") +
-#   labs(title = expression(paste("ime Coefficient: Sensitivity Analysis for Different Priors on r and ", beta)),
-#        x = expression(beta[1]),caption="Figure 7.2") + xlim(80,90) + 
-#   theme(plot.caption = element_text(hjust = 0.5, vjust = -0.5, size = 16)) +
-#   facet_wrap(priors~.,  scales = "free_y", nrow = 2) 
+While the $r$ parameter appears to be slightly more sensitive to priors, the models that it appears to differ for are used highly informative priors on r. This may have constrained our sampler from properly exploring the space. We can see evidence for this when we examine the two plots with the highly non-informative prior $r \sim exp(0.001)$, which align most strongly with our chosen prior  $r \sim \Gamma(10,0.5)$. This is true also for the Dalai Lama coefficient and Dalai Lama * Time coefficient.
+
+```{r eval=TRUE, fig.width=12, fig.align='center'}
+sensitivity_plot("beta_1")  %>%
+  ggplot() +
+  geom_density(aes(x = beta_1)) + geom_vline(xintercept = predicted_beta_1, color = "red") +
+  labs(title = expression(paste("Time Coefficient: Sensitivity Analysis Over r and ", beta)),
+       x = expression(beta[1]),caption="Figure 9") +
+  theme(plot.caption = element_text(hjust = 0.5, vjust = -0.5, size = 16)) +
+  facet_wrap(priors~.,  scales = "free_y", nrow = 2)
 ```
 
-```{r}
+```{r eval=TRUE, fig.width=12, fig.align='center'}
 sensitivity_plot("survival_DL")  %>%
   ggplot() +
   geom_density(aes(x = survival_DL)) + geom_vline(xintercept = predicted_dl, color = "red") +
-  labs(title = expression(paste("14th Dalai Lama: Sensitivity Analysis for Different Priors on r and ", beta)),
-       x = expression(beta[1]),caption="Figure 8") + xlim(80,90) + 
+  labs(title = expression(paste("14th Dalai Lama: Sensitivity Analysis Over r and ", beta)),
+       x = expression(beta[1]),caption="Figure 10") + xlim(80,90) + 
   theme(plot.caption = element_text(hjust = 0.5, vjust = -0.5, size = 16)) +
   facet_wrap(priors~.,  scales = "free_y", nrow = 2) 
 ```
 
-```{r}
+```{r eval=TRUE, fig.width=12, fig.align='center'}
 sensitivity_plot("survival_Francis")  %>%
   ggplot() +
   geom_density(aes(x = survival_Francis)) + geom_vline(xintercept = predicted_francis, color = "red") +
-  labs(title = expression(paste("Pope Francis: Sensitivity Analysis for Different Priors on r and ", beta)),
-       x = expression(beta[1]),caption="Figure 9") + xlim(88,100) + 
+  labs(title = expression(paste("Pope Francis: Sensitivity Analysis Over r and ", beta)),
+       x = expression(beta[1]),caption="Figure 11") + xlim(88,100) + 
   theme(plot.caption = element_text(hjust = 0.5, vjust = -0.5, size = 16)) +
   facet_wrap(priors~.,  scales = "free_y", nrow = 2)
 ```
 
-```{r}
+```{r eval=TRUE, fig.width=12, fig.align='center'}
 sensitivity_plot("survival_Naruhito")  %>%
   ggplot() +
   geom_density(aes(x = survival_Naruhito)) + geom_vline(xintercept = predicted_naruhito, color = "red") +
-  labs(title = expression(paste("Emperor Naruhito: Sensitivity Analysis for Different Priors on r and ", beta)),
-       x = expression(beta[1]),caption="Figure 10") + xlim(70,80) + 
+  labs(title = expression(paste("Emperor Naruhito: Sensitivity Analysis Over r and ", beta)),
+       x = expression(beta[1]),caption="Figure 12") + xlim(70,80) + 
   theme(plot.caption = element_text(hjust = 0.5, vjust = -0.5, size = 16)) +
   facet_wrap(priors~.,  scales = "free_y", nrow = 2)
 ```
 
-```{r}
+```{r eval=TRUE, fig.width=12, fig.align='center'}
 sensitivity_plot("survival_Obama")  %>%
   ggplot() +
   geom_density(aes(x = survival_Obama)) + geom_vline(xintercept = predicted_obama, color = "red") +
-  labs(title = expression(paste("President Obama: Sensitivity Analysis for Different Priors on r and ", beta)),
-       x = expression(beta[1]),caption="Figure 11") + xlim(80,90) + 
+  labs(title = expression(paste("President Obama: Sensitivity Analysis Over r and ", beta)),
+       x = expression(beta[1]),caption="Figure 13") + xlim(75,85) + 
   theme(plot.caption = element_text(hjust = 0.5, vjust = -0.5, size = 16)) +
   facet_wrap(priors~.,  scales = "free_y", nrow = 2)
 ```
 
-```{r}
+```{r eval=TRUE, fig.width=12, fig.align='center'}
 sensitivity_plot("beta_int[2]","ChinaEmp")  %>% 
   ggplot() + 
   geom_density(aes(x = ChinaEmp)) + geom_vline(xintercept = predicted_ChinaEmp, color = "red") + 
-  labs(title = expression(paste("Chinese Emperor Coefficient : Sensitivity Analysis for Different Priors on r and ", beta)),
-       x = expression(beta[1]),caption="Figure 12") + 
+  labs(title = expression(paste("Chinese Emperor Coefficient : Sensitivity Analysis Over r and ", beta)),
+       x = expression(beta[1]),caption="Figure 14") + 
   theme(plot.caption = element_text(hjust = 0.5, vjust = -0.5, size = 16)) + 
   facet_wrap(priors~.,  scales = "free_y", nrow = 2)
 ```
 
-```{r}
+```{r eval=TRUE, fig.width=12, fig.align='center'}
 sensitivity_plot("beta_int[3]","DalaiLama")  %>% 
   ggplot() + 
   geom_density(aes(x = DalaiLama)) + geom_vline(xintercept = predicted_DalaiLama, color = "red") + 
-  labs(title = expression(paste("Dalai Lama Coefficient : Sensitivity Analysis for Different Priors on r and ", beta)),
-       x = expression(beta[1]),caption="Figure 13") + 
+  labs(title = expression(paste("Dalai Lama Coefficient : Sensitivity Analysis Over r and ", beta)),
+       x = expression(beta[1]),caption="Figure 15") + 
   theme(plot.caption = element_text(hjust = 0.5, vjust = -0.5, size = 16)) + 
   facet_wrap(priors~.,  scales = "free_y", nrow = 2)
 ```
 
-```{r}
+```{r eval=TRUE, fig.width=12, fig.align='center'}
 sensitivity_plot("beta_int[4]","JapanEmp")  %>% 
   ggplot() + 
   geom_density(aes(x = JapanEmp)) + geom_vline(xintercept = predicted_JapanEmp, color = "red") + 
-  labs(title = expression(paste("Japanese Emperor Coefficient : Sensitivity Analysis for Different Priors on r and ", beta)),
-       x = expression(beta[1]),caption="Figure 14") + 
+  labs(title = expression(paste("Japanese Emperor Coefficient : Sensitivity Analysis Over r and ", beta)),
+       x = expression(beta[1]),caption="Figure 16") + 
   theme(plot.caption = element_text(hjust = 0.5, vjust = -0.5, size = 16)) + 
   facet_wrap(priors~.,  scales = "free_y", nrow = 2) 
 ```
 
-```{r}
+```{r eval=TRUE, fig.width=12, fig.align='center'}
 sensitivity_plot("beta_int[5]","USPres")  %>% 
   ggplot() + 
   geom_density(aes(x = USPres)) + geom_vline(xintercept = predicted_USPres, color = "red") + 
-  labs(title = expression(paste("US President * Time Coefficient : Sensitivity Analysis for Different Priors on r and ", beta)),
-       x = expression(beta[1]),caption="Figure 15") + 
+  labs(title = expression(paste("US President * Time Coefficient : Sensitivity Analysis Over r and ", beta)),
+       x = expression(beta[1]),caption="Figure 17") + 
   theme(plot.caption = element_text(hjust = 0.5, vjust = -0.5, size = 16)) + 
   facet_wrap(priors~.,  scales = "free_y", nrow = 2) 
 ```
 
-```{r}
+```{r eval=TRUE, fig.width=12, fig.align='center'}
 sensitivity_plot("beta_type[2]","ChinaEmpTime")  %>% 
   ggplot() + 
   geom_density(aes(x = ChinaEmpTime)) + geom_vline(xintercept = predicted_ChinaEmpTime, color = "red") + 
-  labs(title = expression(paste("Chinese Emperor * Time Coefficient : Sensitivity Analysis for Different Priors on r and ", beta)),
-       x = expression(beta[1]),caption="Figure 16") + 
+  labs(title = expression(paste("Chinese Emperor * Time Coefficient : Sensitivity Analysis Over r and ", beta)),
+       x = expression(beta[1]),caption="Figure 18") + 
   theme(plot.caption = element_text(hjust = 0.5, vjust = -0.5, size = 16)) + 
   facet_wrap(priors~.,  scales = "free_y", nrow = 2)
 ```
 
-```{r}
+```{r eval=TRUE, fig.width=12, fig.align='center'}
 sensitivity_plot("beta_type[3]","DalaiLamaTime")  %>% 
   ggplot() + 
   geom_density(aes(x = DalaiLamaTime)) + geom_vline(xintercept = predicted_DalaiLamaTime, color = "red") + 
-  labs(title = expression(paste("Dalai Lama Coefficient : Sensitivity Analysis for Different Priors on r and ", beta)),
-       x = expression(beta[1]),caption="Figure 17") + 
+  labs(title = expression(paste("Dalai Lama * Time Coefficient: Sensitivity Analysis Over r and ", beta)),
+       x = expression(beta[1]),caption="Figure 19") + 
   theme(plot.caption = element_text(hjust = 0.5, vjust = -0.5, size = 16)) + 
   facet_wrap(priors~.,  scales = "free_y", nrow = 2)
 ```
 
-```{r}
+```{r eval=TRUE, fig.width=12, fig.align='center'}
 sensitivity_plot("beta_type[4]","JapanEmpTime")  %>% 
   ggplot() + 
   geom_density(aes(x = JapanEmpTime)) + geom_vline(xintercept = predicted_JapanEmpTime, color = "red") + 
-  labs(title = expression(paste("Japanese Emperor * Time Coefficient : Sensitivity Analysis for Different Priors on r and ", beta)),
-       x = expression(beta[1]),caption="Figure 18") + 
+  labs(title = expression(paste("Japanese Emperor * Time Coefficient : Sensitivity Analysis Over r and ", beta)),
+       x = expression(beta[1]),caption="Figure 20") + 
   theme(plot.caption = element_text(hjust = 0.5, vjust = -0.5, size = 16)) + 
   facet_wrap(priors~.,  scales = "free_y", nrow = 2) 
 ```
 
-```{r}
+```{r eval=TRUE, fig.width=12, fig.align='center'}
 sensitivity_plot("beta_type[5]","USPresTime")  %>% 
   ggplot() + 
   geom_density(aes(x = USPresTime)) + geom_vline(xintercept = predicted_USPresTime, color = "red") + 
-  labs(title = expression(paste("US President * Time Coefficient : Sensitivity Analysis for Different Priors on r and ", beta)),
-       x = expression(beta[1]),caption="Figure 19") + 
+  labs(title = expression(paste("US President * Time Coefficient : Sensitivity Analysis Over r and ", beta)),
+       x = expression(beta[1]),caption="Figure 21") + 
+  theme(plot.caption = element_text(hjust = 0.5, vjust = -0.5, size = 16)) + 
+  facet_wrap(priors~.,  scales = "free_y", nrow = 2) 
+```
+
+
+## Sensitivity Analysis: r, Time Coefficient Over Different Upper Bounds
+
+```{r eval=TRUE}
+upper_vals <- c("100","105","")
+
+sensitivity_plot_trunc = function(param, renamed_param = NA) {
+  df = data.frame()
+  for (curr_upper in upper_vals) {
+      upperText = paste0("_upper_",curr_upper)
+      if (curr_upper == ""){
+        upperText = ""
+      }
+      file_name = paste0("leaders_model_r_10_5e-1_beta_1",upperText,".Rdata")
+      load(file_name)
+      
+      curr_param = param
+      rjags.df <- rjags_model$BUGSoutput$sims.matrix %>% as.data.frame()
+      if (!is.na(renamed_param)){
+        colnames(rjags.df)[colnames(rjags.df) == param] = renamed_param
+        curr_param = renamed_param
+      }
+      
+      param_df = rjags.df %>%
+        select(curr_param) %>% 
+        mutate(curr_upper = case_when(
+          curr_upper == "" ~ "110",
+          TRUE ~ as.character(curr_upper)),
+          priors = paste0("Upper Bound = ",curr_upper," years"))
+      df = df %>% bind_rows(param_df)
+  }
+  return(df) 
+}
+
+sensitivity_plot_trunc("r")  %>% 
+  ggplot() + 
+  geom_density(aes(x = r)) + geom_vline(xintercept = predicted_r, color = "red") + 
+  labs(title = expression(paste("r : Sensitivity Analysis Over 100, 105, 110 Years as Upper Bounds")),
+       x = expression(beta[1]),caption="Figure 21") + 
+  theme(plot.caption = element_text(hjust = 0.5, vjust = -0.5, size = 16)) + 
+  facet_wrap(priors~.,  scales = "free_y", nrow = 2) 
+```
+
+```{r eval=TRUE}
+sensitivity_plot_trunc("beta_1")  %>% 
+  ggplot() + 
+  geom_density(aes(x = beta_1)) + geom_vline(xintercept = predicted_beta_1, color = "red") + 
+  labs(title = expression(paste("Time Coefficient : Sensitivity Analysis Over 100, 105, 110 Years as Upper Bounds")),
+       x = expression(beta[1]),caption="Figure 22") + 
   theme(plot.caption = element_text(hjust = 0.5, vjust = -0.5, size = 16)) + 
   facet_wrap(priors~.,  scales = "free_y", nrow = 2) 
 ```
@@ -1317,6 +1388,7 @@ sensitivity_plot("beta_type[5]","USPresTime")  %>%
 Below, we obtain the expected multiplicative factor of being a certain leader type of mean birth year compared to being a Pope of mean birth year.
 
 ```{r echo=TRUE}
+# The following code shows how we obtained the multiplicative factor of being a certain leader type of mean birth year, relative to the Pope
 model <- Bayesian_Leaders_output$BUGS$summary %>% as.data.frame()
 
 #Chinese Emperors
