@@ -268,7 +268,7 @@ generate_model_text = function(priors=""){
 
 ```{r Generate or Load Model}
 #The following utility function takes in the priors and name of the model file the user intends to create before running RJAGS. In the case the model_name exists in the current working directory, this function will instead load in that model and return it for further exploration.
-generate_model = function(priors,model_name,num_iter = 250){
+generate_model = function(priors,model_name,num_iter = 250000){
   model_file <- generate_model_text(priors)
   if (file.exists(model_name)) {
     load(file = model_name)
@@ -323,7 +323,7 @@ priors <- "
    # prior on r 
   r ~ dgamma(10,0.5)
   "
-Bayesian_Leaders_output <- generate_model(priors,"leaders_model_r_10_5e-1_beta_1.Rdata",500)
+Bayesian_Leaders_output <- generate_model(priors,"leaders_model_r_10_5e-1_beta_1.Rdata",500000)
 ```
 
 
