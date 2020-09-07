@@ -249,12 +249,12 @@ generate_model_text = function(priors=""){
   mu_DL <- exp(beta_DL)
   survival_DL ~ dweib(r, mu_DL)T(present_age_DL, upper_age)
   
-  beta_WC <- beta_0 + beta_1*time_WC_cent + beta_type[type_WC] + 
+  beta_WC <- beta_0 + beta_1*time_WC_cent + beta_type[type_WC] +
     beta_int[type_WC]*time_WC_cent
   mu_WC <- exp(beta_WC)
   survival_WC ~ dweib(r, mu_WC)T(0, upper_age)
-  
-  beta_sun <- beta_0 + beta_1*time_sun_cent + beta_type[type_sun] + 
+
+  beta_sun <- beta_0 + beta_1*time_sun_cent + beta_type[type_sun] +
     beta_int[type_sun]*time_sun_cent
   mu_sun <- exp(beta_sun)
   survival_sun ~ dweib(r, mu_sun)T(0, upper_age)
@@ -330,7 +330,6 @@ upper_age = 105
 Bayesian_Leaders_output_105 <- generate_model(priors,"leaders_model_r_10_5e-1_beta_1_upper_105.Rdata")
 upper_age = 110
 ```
-
 
 ```{r}
 ## Model 1a: r ~ exp(0.001), Betas ~ N(0,1)
@@ -543,7 +542,7 @@ gridExtra::grid.arrange(ggplot(leaders, aes(x = Type, y = Age.Event)) +
                           geom_point() + 
                           labs(title="Lifespans vs Birth Date",
                                caption="Figure 2") + 
-                          xlab("Transformed Birth Date") +
+                          xlab("Birth Date") +
                           geom_smooth(method = "lm", se=FALSE) + 
                           theme(axis.title.y = element_blank(),
                                 plot.caption = element_text(hjust = 0.5, vjust = -0.5, size = 18)),
@@ -553,13 +552,13 @@ gridExtra::grid.arrange(ggplot(leaders, aes(x = Type, y = Age.Event)) +
 
 Figure 1 displays lifespan across different leadership types. Among the Chinese Emperors, Japanese Emperors, and Dalai Lamas, the interquartile ranges of lifespan largely overlap. Popes and U.S. Presidents appear to have a slightly higher median lifespan. This is consistent with the fact that Popes and Presidents are elected much later in their lives, while Dalai Lamas and Chinese and Japanese Emperors may come to power when they are younger (either due to heredity or identification at a young age). An American citizen who dies in her youth, for example, can never become President due to the age threshold, so her short survival time can never be reflected in this dataset.
 
-Figure 2 displays the change in lifespan across time for different types of leadership. It appears that lifespan has increased at similar rates across Chinese and Japanese Emperors, U.S. Presidents and Popes over time. However, for Dalai Lamas, the plot indicates that lifespan has decreased over time. This unexpected trend can be attributed to the untimely demise of several Dalai Lamas in the 19th century, with causes of death ranging from common illnesses to ceiling collapses [[5]][Bibliography]. 
+Figure 2 displays the change in lifespan across time for different types of leadership. It appears that lifespan has increased at similar rates across Chinese and Japanese Emperors, U.S. Presidents and Popes over time. However, for Dalai Lamas, the plot indicates that lifespan has decreased over time. This unexpected trend can be attributed to the untimely demise of several Dalai Lamas in the 19th century, with causes of death ranging from common illnesses to ceiling collapses [[2]][Bibliography]. 
 
 # Methodology
 
 ## Model Selection 
 
-We propose a Weibull distribution to model the survival time $T_i$ for the $i$th leader. This distribution is a flexible generalization of the exponential distribution and can be used to model survival outcomes. The Weibull probability density function for $T_i$ takes the following form:
+We propose a Weibull distribution to model the survival time $T_i$ for the $i$th leader. This distribution is a more flexible generalization of the exponential distribution and can be used to model survival outcomes. The Weibull probability density function for $T_i$ takes the following form:
 
 $$
 f_{T_i}(t_i|r, \mu_i) = r\ \mu_i\ t_i^{r-1}\ exp(-\mu_i\ {t_i}^r),\ \ \ \ \ r,\  \mu_i, \ t_i >0
@@ -584,7 +583,7 @@ $$
 T_i \sim  \,Weibull(r,\, \mu_i)\,T(present\_age_i, \, upper\_age)
 $$
 
-Here, $present\_age_i$ is 0 for a leader who is deceased, and their current age if they are still alive. For deceased leaders, the lower bound of 0 prevents the model from making assumptions about their minimum lifespan. For leaders who are currently alive, it ensures the model does not sample a survival time that is less than their current age. We set the $upper\_age$ to be 110. We selected this upper bound due to the fact that the United Nations predicts that only 0.0074% of the world's population will celebrate their 100th birthday and become a centenarian [[2]][Bibliography]. Of this small percentage of people, the Gerontology Research Group estimates only 0.15% to 0.25% will reach the age of 110 [[3]][Bibliography]. 
+Here, $present\_age_i$ is 0 for a leader who is deceased, and their current age if they are still alive. For deceased leaders, the lower bound of 0 prevents the model from making assumptions about their minimum lifespan. For leaders who are currently alive, it ensures the model does not sample a survival time that is less than their current age. We set the $upper\_age$ to be 110. We selected this upper bound due to the fact that the United Nations predicts that only 0.0074% of the world's population will celebrate their 100th birthday and become a centenarian [[3]][Bibliography]. Of this small percentage of people, the Gerontology Research Group estimates only 0.15% to 0.25% will reach the age of 110 [[4]][Bibliography]. 
 
 ## Choice of Prior Distributions
 
@@ -599,7 +598,7 @@ $$
 $$
 
 
-Though there does not exist a strong body of literature to inform these priors, each of our choices resulted from research and consideration of context. For our prior on $\beta_0$, the intercept term, we chose a noninformative $N(0,100)$. As we do not believe the intercept is centered at 0, we imposed a high variance on the prior to allow it to explore the space. For the prior on $\beta_1$, the coefficient corresponding to the $time$ covariate, we decided to use a $N(0, 1)$ distribution. We were motivated to explore this zero-centered, low variance prior due to a study [[4]][Bibliography] citing that lifespan has not significantly changed over the past centuries. Thus, this prior reflects our beliefs that birth year does not heavily impact survival time. For the priors on $\beta_{2j}$, which are coefficients for each of the 4 levels of $type$ (Chinese Emperor, Dalai Lama, Japanese Emperor, and U.S. President), we observed that each leader type is tied to a region. Our research on lifespans across these various regions [[2]][Bibliography] indicates that they are roughly comprable, so we chose a $N(0,1)$ prior for each $\beta_{2j}$. Similarly, we chose a $N(0,1)$ prior for the interaction coefficients $\beta_{3j}$. Here, we did not have a strong enough belief that the coefficients were non-zero and thus chose the same priors as before. 
+Though there does not exist a strong body of literature to inform these priors, each of our choices resulted from research and consideration of context. For our prior on $\beta_0$, the intercept term, we chose a noninformative $N(0,100)$. As we do not believe the intercept is centered at 0, we imposed a high variance on the prior to allow it to explore the space. For the prior on $\beta_1$, the coefficient corresponding to the $time$ covariate, we decided to use a $N(0, 1)$ distribution. We were motivated to explore this zero-centered, low variance prior due to a study [[5]][Bibliography] citing that lifespan has not significantly changed over the past centuries. Thus, this prior reflects our beliefs that birth year does not heavily impact survival time. For the priors on $\beta_{2j}$, which are coefficients for each of the 4 levels of $type$ (Chinese Emperor, Dalai Lama, Japanese Emperor, and U.S. President), we observed that each leader type is tied to a region. Our research on lifespans across these various regions [[3]][Bibliography] indicates that they are roughly comprable, so we chose a $N(0,1)$ prior for each $\beta_{2j}$. Similarly, we chose a $N(0,1)$ prior for the interaction coefficients $\beta_{3j}$. Here, we did not have a strong enough belief that the coefficients were non-zero and thus chose the same priors as before. 
 
 Our prior on $r$ was informed by the context of the study. Values of $r$ between 0 and 1 indicate a decreasing rate of death over time, while those greater than 1 represent an increasing rate of death over time. Because it can be assumed that the rate of death for world leaders increases with age, we want an $r$ value greater than 1. This belief warranted an informative $\Gamma(10, 0.5)$ prior with mean 5 and variance 2.5, reflecting a relative degree of certainty that $r$ takes on value greater than 1. We perform sensitivity analysis, along with other model diagnostics, in Section 4.2.2. 
 
@@ -642,7 +641,7 @@ post_summary_df %>%
 ```
 
 Using JAGS, we ran Model 1 with 500,000 simulations to determine the posterior density \newline
-$\pi(r,\beta_0,\beta_1, \beta_{2j},\beta_{3j}\, | \,data)$, with results summarized in Table 1 [[8]][Bibliography]. The 95% credible interval is created using the 2.5% and 97.5% quantiles from the posterior distribution. 
+$\pi(r,\beta_0,\beta_1, \beta_{2j},\beta_{3j}\, | \,data)$, with results summarized in Table 1 [[6]][Bibliography]. The 95% credible interval is created using the 2.5% and 97.5% quantiles from the posterior distribution. 
 
 ## Model Diagnostics 
 
@@ -656,9 +655,11 @@ To determine if our model has reached a stationary distribution, we first looked
 
 ### Sensitivity Analysis 
 
-In Figures 7-22 in the Appendix, we explore the posterior distributions of our $r$ parameter, coefficients, and predictions resulting from various priors, where the red lines indicate our posterior mean estimate from our final models. In this manner, we can verify our results are not specific to our prior choice [[6]][Bibliography]. The posterior distributions are roughly the same for the four different $r$ priors, each paired with two different priors on the $\beta$ coefficients. The final plot also compares the posterior distribution of our $r$ and the *time* coefficient. 
+In Figures 7-22 in the Appendix, we explore the posterior distributions of our $r$ parameter, coefficients, and predictions resulting from various priors, where the red lines indicate our posterior mean estimate from our final models. In this manner, we can verify our results are not specific to our prior choice [[7]][Bibliography]. The posterior distributions are roughly the same for the four different $r$ priors, each paired with two different priors on the $\beta$ coefficients. The final plot also compares the posterior distribution of our $r$ and the *time* coefficient. 
 
 ### Standardized Residual Plots 
+
+WOIFUHALKSFHAWLEKJ SHOULD GO IN  APPENDIX  
 
 ```{r }
 # The following code calculates the standardized residuals from our final model
@@ -695,7 +696,7 @@ survivalPredicted <- survivalPredicted %>%
 
 ```
 
-```{r fig.height=3.75, fig.align='center', eval=FALSE}
+```{r fig.height=3.75, fig.align='center'}
 # The following code plots the standardized residuals
 ggplot(data = survivalPredicted %>% mutate(Censored = case_when(
   Censored == 1 ~ "Censored",
@@ -709,9 +710,22 @@ ggplot(data = survivalPredicted %>% mutate(Censored = case_when(
   scale_shape_manual(values = c(2,4)) +
   scale_colour_manual(values = c("red", "black")) + 
   scale_fill_manual(name = "", labels = c("Non-Censored", "Censored")) 
+
+ggplot(data = survivalPredicted %>% 
+         inner_join(leaders %>% select(Type, Name), by = c("name" ="Name")) %>% 
+         mutate(Censored = case_when(
+           Censored == 1 ~ "Censored",
+           TRUE ~ "Non-Censored"
+         )), aes(x = time_of_birth, y = Standardized_Residual, color = Type, shape = Censored))  + 
+  geom_jitter(alpha = 0.8, height = 0.5, width = 0.75) + 
+  labs(title = "Standardized Residuals vs Time by Leadership Type",
+       x = "Time", y = "Standardized Residuals", caption = "Figure 4",
+       color = "") + 
+  theme(plot.caption = element_text(hjust = 0.5, vjust = -0.5, size = 12)) + 
+  scale_shape_manual(values = c(4, 16)) 
 ```
 
-We also examined the standardized residuals, defined as $std\_r_i = (T_i - E[T_i])/sd[T_i]$, and plot $std\_r_i$ against $time_i$ in Figure 4. The plot shows that the standardized residuals are generally randomly dispersed about 0, where the 11 right-censored observations are marked by a red dot. There appears to be slightly more positive residuals, and this is largely because some of the leaders in our dataset died unnaturally young, but few died exceptionally old. A possible improvement to this issue could be exploring a model with a time-squared coefficient. As expected, we have large negative standardized residuals for the censored observations because their current ages are lower than their mean predicted ages. 
+We also examined the standardized residuals, defined as $std\_r_i = (T_i - E[T_i])/sd[T_i]$, and plot $std\_r_i$ against $time_i$ in Figure 4. The plot shows that the standardized residuals are generally randomly dispersed about 0, where the 11 right-censored observations are marked by a red dot. There appears to be slightly more positive residuals, and this is largely because some of the leaders in our dataset died quite young, but few died very old. A possible improvement to this issue could be exploring a model with a time-squared coefficient. As expected, we have large negative standardized residuals for the censored observations because their current ages are lower than their mean predicted ages. 
 
 ### External Validation 
 
@@ -822,7 +836,7 @@ Percent_Difference %>%
   kable_styling(latex_options = c("hold_position")) %>% 
   kableExtra::pack_rows("Percent Difference", 1,5) %>% 
   row_spec(0, bold = TRUE) %>% 
-  column_spec(column = c(2:3), latex_column_spec = "c") %>%   column_spec(column = c(1), width = "20em")
+  column_spec(column = c(2:3), latex_column_spec = "c") %>%   column_spec(column = c(1), width = "12em")
 ```
 
 In Table 2, we summarize the percent changes in the mean survival time if a leader is born one decade later. Recall that $time$ is a scaled and shifted version of birth year that is measured in centuries. We thus consider the changes resulting from a 0.1 unit increase in $time$ in order to make interpretaions on a decade scale. As can be seen, the 95% credible intervals for Chinese Emperors, Japanese Emperors, and US Presidents contain the value 0. Thus, for these types of leaders, we see that if a leader is born one decade later, it does not yield a significant change in expected survival time. In contrast, the intervals for Popes and Dalai Lamas do not contain 0. Specifically, for a given decade increase in birth year, Dalai Lamas exhibit a decrease in expected survial time while Popes exhibit an increase. Though the point and interval estimates for these values point toward significance, they are still quite close to 0, signaling that a relationship between birth year and survival time is largely independent of leadership type. 
@@ -952,11 +966,13 @@ bind_rows(Percent_Difference_1800,
                     col.names = c("Leadership Type", "Mean", "95% CI")) %>% 
   kable_styling(latex_options = c("hold_position")) %>% 
   kableExtra::pack_rows("1800", 1,4) %>% 
-  kableExtra::pack_rows("1900", 5,8) #%>% 
+  kableExtra::pack_rows("1900", 5,8) %>% 
+  row_spec(0, bold = TRUE) %>% 
+  column_spec(column = c(2:3), latex_column_spec = "c") %>%   column_spec(column = c(1), width = "12em")#%>% 
 #kableExtra::pack_rows("1900", 9,12) 
 ```
 
-Table 3 shows, at three different birth years, the expected percent difference in the mean survival time of world leaders as compared to the baseline level of Popes. Across the three birth years, 1800, 1850, and 1900, the expected survial times for Chinese Emperors and Dalai Lamas is significantly lower than that of Popes. For example, a Chinese Emperor born in 1900 is expected to have a survival time that is `r -1 * round(ce_percent_difference_ft[2], 1)`% less than a Pope born in the same year. Similarly, a Dalai Lama born in 1900 is expected to have survival time that is `r -1 *round(dl_percent_difference_ft[2], 1)`% less than a Pope born in the same year. 
+Table 3 shows, at three different birth years, the expected percent difference in the mean survival time of world leaders as compared to the baseline level of Popes. Across the three birth years, 1800, 1850, and 1900, the expected survial times for Chinese Emperors and Dalai Lamas is significantly lower than that of Popes. For example, a Chinese Emperor born in 1900 is expected to have a survival time that is `r -1 * round(ce_percent_difference_ft[2], 1)`% (`r -1 * round(ce_percent_difference_ft[1], 1)`%, `r -1 * round(ce_percent_difference_ft[3], 1)`%) less than a Pope born in the same year. Similarly, a Dalai Lama born in 1900 is expected to have survival time that is `r -1 *round(dl_percent_difference_ft[2], 1)`% (`r -1 *round(dl_percent_difference_ft[1], 1)`%, `r -1 *round(dl_percent_difference_ft[3], 1)`%) less than a Pope born in the same year. 
 
 Althought the average percent difference in expected survival time for Japanese Emperor and U.S. Presidents as compared to Popes is negative across the three birth years, the corresponding credible intervals contain zero, suggesting that these values are not significant.
 
@@ -1029,7 +1045,7 @@ Obama_vs_naruhito_data <- as.data.frame(Obama_vs_naruhito)
 
 
 gridExtra::grid.arrange(ggplot(DL_vs_francis_data, aes(x = DL_vs_francis, y = ..density..)) + 
-                          geom_histogram(binwidth = 4) + 
+                          geom_histogram(binwidth = 2) + 
                           labs(x = "Difference in Life Expectancy (Dalai Lama - Francis)",
                                y = "Predictive Probability Density", 
                                
@@ -1039,7 +1055,7 @@ gridExtra::grid.arrange(ggplot(DL_vs_francis_data, aes(x = DL_vs_francis, y = ..
                           geom_vline(xintercept=mean(DL_vs_francis), color = "blue") + 
                           theme(plot.caption = element_text(hjust = 0.5, vjust = -0.5, size = 18)),
                         ggplot(Obama_vs_naruhito_data, aes(x = Obama_vs_naruhito, y = ..density..)) + 
-                          geom_histogram(binwidth = 4) + 
+                          geom_histogram(binwidth = 6) + 
                           labs(
                             subtitle = "President Obama and Emperor Naruhito",
                             x = "Difference in Life Expectancy (Obama - Naruhito)", 
@@ -1054,7 +1070,7 @@ gridExtra::grid.arrange(ggplot(DL_vs_francis_data, aes(x = DL_vs_francis, y = ..
 
 ```
 
-Figures 7 and 8 show the distribution of difference in predicted life expectancy of select leaders. Please note that we are able to draw the following conclusions because we used a Bayesian framework [[7]][Bibliography].
+Figures 7 and 8 show the distribution of difference in predicted life expectancy of select leaders. Note that we are able to draw the following conclusions because we used a Bayesian framework [[8]][Bibliography].
 
 From the posterior predictive samples for the survival times of the 14th Dalai Lama and Pope Francis, we note that only in  `r round(100*mean(survival_DL>survival_Francis),1)`% of the simulated samples is the Dalai Lama predicted to have a longer lifespan. Thus, there is only a `r round(mean(survival_DL>survival_Francis),3)` probability that the 14th Dalai Lama will have a longer lifespan than Pope Francis. Figure 5 indicates that, on average, the posterior predictions for the survival time of the 14th Dalai Lama are `r -1*round(1*mean(DL_vs_francis), 3)` years (shown by the blue line) below that of Pope Francis. 
 
@@ -1074,19 +1090,13 @@ Having answered these questions, we will now state the limitations. These includ
 ## Bibliography
 
 1. Julian Stander, Luciana Dalla Valle & Mario Cortina-Borja (2018) A Bayesian Survival Analysis of a Historical Dataset: How Long Do Popes Live?, The American Statistician, 72:4, 368-375, DOI: 10.1080/00031305.2017.1328374
-2. World Population Prospects - Population Division. (n.d.). Retrieved August 31, 2020, from https://population.un.org/wpp/Download/Standard/Population/
-3. Supercentenarian Research Foundation. (n.d.). Retrieved August 31, 2020, from http://supercentenarian-research-foundation.org/TableE.aspx
-4. Ruggeri, A. (2018, October 2). Do we really live longer than our ancestors? Retrieved August 31, 2020, from https://www.bbc.com/future/article/20181002-how-long-did-ancient-people-live-life-span-versus-longevity
-5. DALAI LAMA- A SHORT LIVED POSITION. (n.d.). Retrieved August 31, 2020, from https://www.tripsatasia.com/newsletter-articles/dalai-lama-a-short-lived-position
-6. Hoff, P. D. (2010). Chapter 1: Introduction and examples. In A first course in bayesian statistical methods (pp. 5-7). Dordrecht: Springer.
-7. Hoff, P. D. (2010). Chapter 5: The Normal Model. In A first course in bayesian statistical methods (pp. 77-78). Dordrecht: Springer.
-8. Hoff, P. D. (2010). Chapter 6: Posterior approximation with the Gibbs sampler. In A first course in bayesian statistical methods (pp. 89-104). Dordrecht: Springer.
-
-```{r}
-knitr::opts_chunk$set(eval = FALSE,
-                      message = FALSE,
-                      warning = FALSE)
-```
+2. DALAI LAMA- A SHORT LIVED POSITION. (n.d.). Retrieved August 31, 2020, from https://www.tripsatasia.com/newsletter-articles/dalai-lama-a-short-lived-position
+3. World Population Prospects - Population Division. (n.d.). Retrieved August 31, 2020, from https://population.un.org/wpp/Download/Standard/Population/
+4. Supercentenarian Research Foundation. (n.d.). Retrieved August 31, 2020, from http://supercentenarian-research-foundation.org/TableE.aspx
+5. Ruggeri, A. (2018, October 2). Do we really live longer than our ancestors? Retrieved August 31, 2020, from https://www.bbc.com/future/article/20181002-how-long-did-ancient-people-live-life-span-versus-longevity
+6. Hoff, P. D. (2010). Chapter 6: Posterior approximation with the Gibbs sampler. In A first course in bayesian statistical methods (pp. 89-104). Dordrecht: Springer.
+7. Hoff, P. D. (2010). Chapter 1: Introduction and examples. In A first course in bayesian statistical methods (pp. 5-7). Dordrecht: Springer.
+8. Hoff, P. D. (2010). Chapter 5: The Normal Model. In A first course in bayesian statistical methods (pp. 77-78). Dordrecht: Springer.
 
 
 ## Traceplots and Autocorrelation Plots
@@ -1415,7 +1425,7 @@ sensitivity_plot_trunc("r")  %>%
   geom_density(aes(x = r)) + geom_vline(xintercept = predicted_r, color = "red") + 
   labs(title = expression(paste("r : Sensitivity Analysis Over 100, 105, 110 Years as Upper Bounds")),
        x = expression(beta[1]),caption="Figure 21") + 
-  theme(plot.caption = element_text(hjust = 0.5, vjust = -0.5, size = 16)) + 
+  theme(plot.caption = element_text(hjust = 0.5, vjust = -0.5, size = 12)) + 
   facet_wrap(priors~.,  scales = "free_y", nrow = 2) 
 ```
 
@@ -1425,59 +1435,36 @@ sensitivity_plot_trunc("beta_1")  %>%
   geom_density(aes(x = beta_1)) + geom_vline(xintercept = predicted_beta_1, color = "red") + 
   labs(title = expression(paste("Time Coefficient : Sensitivity Analysis Over 100, 105, 110 Years as Upper Bounds")),
        x = expression(beta[1]),caption="Figure 22") + 
-  theme(plot.caption = element_text(hjust = 0.5, vjust = -0.5, size = 16)) + 
+  theme(plot.caption = element_text(hjust = 0.5, vjust = -0.5, size = 12)) + 
   facet_wrap(priors~.,  scales = "free_y", nrow = 2) 
-```
-
-## Calculations from Section 5.1
-
-Below, we obtain the expected multiplicative factor of being a certain leader type of mean birth year compared to being a Pope of mean birth year.
-
-```{r echo=TRUE}
-# The following code shows how we obtained the multiplicative factor of being a certain leader type of mean birth year, relative to the Pope
-model <- Bayesian_Leaders_output$BUGS$summary %>% as.data.frame()
-
-#Chinese Emperors
-ce_int <- exp(model$mean[7])
-
-#Dalai Lamas
-dl_int <- exp(model$mean[8])
-
-#Japanese Emperor
-je_int <- exp(model$mean[9])
-
-#US Pres
-us_int <- exp(model$mean[10])
-model <- Bayesian_Leaders_output$BUGS$summary %>% as.data.frame()
-#Chinese Emperors
-ce_int <- exp(model$mean[7])
-#Dalai Lamas
-dl_int <- exp(model$mean[8])
-#Japanese Emperor
-je_int <- exp(model$mean[9])
-#US Pres
-us_int <- exp(model$mean[10])
 ```
 
 ## Time^2 Model
 
+```{r}
+knitr::opts_chunk$set(eval=FALSE)
+```
+
+
 ```{r Time squared model file}
 generate_model_text_time_squared = function(priors=""){
   model_file <- tempfile()
-
+  
   likelihood = "#Likelihood
   for (i in 1:n){
     censored[i] ~ dinterval(survival[i], censoring_limits[i])
     survival[i] ~ dweib(r, mu[i]) # Basic Weibull assumption
     mu[i] <- exp(beta[i])  # Defining beta as log(mu)
-    beta[i] <- beta_0 + beta_1*(x_1[i] + x_1[i]*x_1[i]) + beta_type[x_2[i]] 
+    beta[i] <- beta_0 + beta_1*x_1[i] + beta_2*x_1[i]*x_1[i] + beta_type[x_2[i]] # + beta_int[x_2[i]] * x_1[i] + #beta_int_sq[x_2[i]] * x_1[i] *x_1[i]
     y_pred_censored[i] ~ dweib(r, mu[i])T(present_age[i], upper_age)
   }
 
   #Priors
   beta_type[1] <- 0
+  beta_int[1]  <- 0
+  beta_int_sq[1]  <- 0
   "
-
+  
   predicted_survivals = "
   #Define the alphas
   alpha_0 <- - beta_0 / r
@@ -1488,40 +1475,40 @@ generate_model_text_time_squared = function(priors=""){
     percentage_increase_type[i] <- 100*(exp(alpha_type[i]) - 1)
   }
 
-  beta_Francis <- beta_0 + beta_1*(time_Francis + time_Francis*time_Francis)
-  mu_Francis <- exp(beta_Francis)
-  survival_Francis ~ dweib(r, mu_Francis)T(present_age_Francis, upper_age)
-
-  beta_Obama <- beta_0 + beta_1*(time_Obama + time_Obama*time_Obama) + 
-    beta_type[type_Obama] 
-  mu_Obama <- exp(beta_Obama)
-  survival_Obama ~ dweib(r, mu_Obama)T(present_age_Obama, upper_age)
-
-  beta_Naruhito <- beta_0 + beta_1*(time_Naruhito + time_Naruhito*time_Naruhito) + 
-  beta_type[type_Naruhito]
-  mu_Naruhito <- exp(beta_Naruhito)
-  survival_Naruhito ~ dweib(r, mu_Naruhito)T(present_age_Naruhito, upper_age)
-
-  beta_DL <- beta_0 + beta_1*(time_DL + time_DL*time_DL) + beta_type[type_DL] 
-  mu_DL <- exp(beta_DL)
-  survival_DL ~ dweib(r, mu_DL)T(present_age_DL, upper_age)
-
-  beta_WC <- beta_0 + beta_1*(time_WC_cent + time_WC_cent *time_WC_cent) + beta_type[type_WC] 
-  mu_WC <- exp(beta_WC)
-  survival_WC ~ dweib(r, mu_WC)T(0, upper_age)
-
-  beta_sun <- beta_0 + beta_1*(time_sun_cent + time_sun_cent*time_sun_cent) + beta_type[type_sun] 
-  mu_sun <- exp(beta_sun)
-  survival_sun ~ dweib(r, mu_sun)T(0, upper_age)
+  # beta_Francis <- beta_0 + beta_1*time_Francis + beta_2*time_Francis*time_Francis
+  # mu_Francis <- exp(beta_Francis)
+  # survival_Francis ~ dweib(r, mu_Francis)T(present_age_Francis, upper_age)
+  # 
+  # beta_Obama <- beta_0 + beta_1*time_Obama + beta_2*time_Obama*time_Obama + 
+  #   beta_type[type_Obama] 
+  # mu_Obama <- exp(beta_Obama)
+  # survival_Obama ~ dweib(r, mu_Obama)T(present_age_Obama, upper_age)
+  # 
+  # beta_Naruhito <- beta_0 + beta_1*time_Naruhito + beta_2*time_Naruhito*time_Naruhito + 
+  # beta_type[type_Naruhito]
+  # mu_Naruhito <- exp(beta_Naruhito)
+  # survival_Naruhito ~ dweib(r, mu_Naruhito)T(present_age_Naruhito, upper_age)
+  # 
+  # beta_DL <- beta_0 + beta_1*(time_DL + time_DL*time_DL) + beta_type[type_DL] 
+  # mu_DL <- exp(beta_DL)
+  # survival_DL ~ dweib(r, mu_DL)T(present_age_DL, upper_age)
+  # 
+  # beta_WC <- beta_0 + beta_1*(time_WC_cent + time_WC_cent *time_WC_cent) + beta_type[type_WC] 
+  # mu_WC <- exp(beta_WC)
+  # survival_WC ~ dweib(r, mu_WC)T(0, upper_age)
+  # 
+  # beta_sun <- beta_0 + beta_1*(time_sun_cent + time_sun_cent*time_sun_cent) + beta_type[type_sun] 
+  # mu_sun <- exp(beta_sun)
+  # survival_sun ~ dweib(r, mu_sun)T(0, upper_age)
   "
-
+  
   model_text <- paste("model{ ",likelihood, priors, predicted_survivals, "}")
   writeLines(model_text,con=model_file)
   return(model_file)
 }
 ```
 
-```{r Generate or Load Time Squared Model, eval=TRUE}
+```{r Generate or Load Time Squared Model}
 generate_time_squared_model = function(priors,model_name,num_iter = 500000){
   model_file <- generate_model_text_time_squared(priors)
   if (file.exists(model_name)) {
@@ -1529,38 +1516,43 @@ generate_time_squared_model = function(priors,model_name,num_iter = 500000){
   }
   else {
     rjags_model_time_squared <- jags(data = data_leaders,
-                                  parameters.to.save = c("beta_0",
-                                                         "beta_1",
-                                                         "beta_type",
-                                                         "r",
-                                                         "y_pred_censored",
-                                                         "survival_Francis",
-                                                         "survival_Obama",
-                                                         "survival_Naruhito",
-                                                         "survival_DL",
-                                                         "survival_WC",
-                                                         "survival_sun",
-                                                         "alpha_0",
-                                                         "alpha_1",
-                                                         "percentage_increase_birthyr",
-                                                         "alpha_type",
-                                                         "percentage_increase_type",
-                                                         "survival"
-                                  ),
-                                  n.iter = num_iter, #increase for better model output - 250K
-                                  n.chains = 3,
-                                  model.file = model_file)
+                                     parameters.to.save = c("beta_0",
+                                                            "beta_1",
+                                                            "beta_2",
+                                                            "beta_type",
+                                                            "beta_int_sq",
+                                                            "beta_int",
+                                                            "r",
+                                                            "y_pred_censored",
+                                                            "survival_Francis",
+                                                            "survival_Obama",
+                                                            "survival_Naruhito",
+                                                            "survival_DL",
+                                                            "survival_WC",
+                                                            "survival_sun",
+                                                            "alpha_0",
+                                                            "alpha_1",
+                                                            "percentage_increase_birthyr",
+                                                            "alpha_type",
+                                                            "percentage_increase_type",
+                                                            "survival"
+                                     ),
+                                     n.iter = num_iter, #increase for better model output - 250K
+                                     n.chains = 3,
+                                     model.file = model_file)
     save(rjags_model_time_squared, file = model_name)
   }
   return(rjags_model_time_squared)
 }
 ```
 
-```{r eval=TRUE}
+```{r}
 time_squared_priors <- "
   # prior on leadership type coefficients (notice there is no need to specify a prior for the baseline)
   for(i in 2:5) {
     beta_type[i] ~ dnorm(0.0, 1)
+    beta_int[i] ~ dnorm(0,1)
+    beta_int_sq[i] ~ dnorm(0,1)
   }
 
   # prior on intercept
@@ -1568,11 +1560,14 @@ time_squared_priors <- "
 
   # prior on time variable
   beta_1 ~ dnorm(0.0, 1)
+  beta_2 ~ dnorm(0,1)
 
    # prior on r
   r ~ dgamma(10,0.5)
   "
-Bayesian_Leaders_output_time_squared <- generate_time_squared_model(time_squared_priors,"leaders_model_time2_r_10_5e-1_beta_1.Rdata")
+#Bayesian_Leaders_output_time_squared <- generate_time_squared_model(time_squared_priors,"leaders_model_time2_r_10_5e-1_beta_1.Rdata")
+
+generate_time_squared_model(time_squared_priors,"yaya.Rdata", 1000)
 ```
 
 $$
@@ -1639,10 +1634,10 @@ al_cur_age = alive_leaders %>% pull(Age.Event)
 al_type = alive_leaders %>% pull(Type)
 
 alive_leaders_post_time_squared = Bayesian_Leaders_output_time_squared$BUGSoutput$summary[c("survival_Francis",
-                                                                  "survival_Obama",
-                                                                  "survival_DL",
-                                                                  "survival_Naruhito",
-                                                                  al_index), ] %>%
+                                                                                            "survival_Obama",
+                                                                                            "survival_DL",
+                                                                                            "survival_Naruhito",
+                                                                                            al_index), ] %>%
   as.data.frame() %>% 
   tibble::rownames_to_column() %>% 
   mutate(rowname = al_names,
