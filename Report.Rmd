@@ -559,7 +559,7 @@ Figure 2 displays the change in lifespan across time for different types of lead
 
 ## Model Selection 
 
-We propose a Weibull distribution to model the survival time $T_i$ for the $i$th leader. This distribution is a generalization of the exponential distribution and can be used to model survival outcomes. The Weibull probability density function for $T_i$ takes the following form:
+We propose a Weibull distribution to model the survival time $T_i$ for the $i$th leader. This distribution is a flexible generalization of the exponential distribution and can be used to model survival outcomes. The Weibull probability density function for $T_i$ takes the following form:
 
 $$
 f_{T_i}(t_i|r, \mu_i) = r\ \mu_i\ t_i^{r-1}\ exp(-\mu_i\ {t_i}^r),\ \ \ \ \ r,\  \mu_i, \ t_i >0
@@ -817,7 +817,7 @@ Percent_Difference %>%
          `95% CI` = paste0("(", X1, ", ", X3, ")")) %>% 
   select(-(X1:X3), -rowname) %>% 
   kableExtra::kable(booktabs = TRUE,
-                    caption = "Multiplicative and Percent Change in Mean Survival Time, from decade increase in Birth Year", 
+                    caption = "Percent Change in Mean Survival Time, from decade increase in Birth Year", 
                     col.names = c("Leadership Type", "Mean", "95% CI")) %>% 
   kable_styling(latex_options = c("hold_position")) %>% 
   kableExtra::pack_rows("Percent Difference", 1,5) %>% 
@@ -1462,125 +1462,210 @@ us_int <- exp(model$mean[10])
 ## Time^2 Model
 
 ```{r Time squared model file}
-#
-# generate_model_text_time_squared = function(priors=""){
-#   model_file <- tempfile()
-#
-#   likelihood = "#Likelihood
-#   for (i in 1:n){
-#     censored[i] ~ dinterval(survival[i], censoring_limits[i])
-#     survival[i] ~ dweib(r, mu[i]) # Basic Weibull assumption
-#     mu[i] <- exp(beta[i])  # Defining beta as log(mu)
-#     beta[i] <- beta_0 + beta_1*x_1[i] + beta_type[x_2[i]] + beta_2* x_1[i]*x_1[i]
-#     y_pred_censored[i] ~ dweib(r, mu[i])T(present_age[i], upper_age)
-#   }
-#
-#   #Priors
-#   beta_type[1] <- 0
-#   "
-#
-#   predicted_survivals = "
-#   #Define the alphas
-#   alpha_0 <- - beta_0 / r
-#   alpha_1 <- - beta_1 / r
-#   alpha_2 <- - beta_2 / r
-#   percentage_increase_birthyr <- 100*(exp(alpha_1) - 1)
-#   for (i in 2:5) {
-#     alpha_type[i] <- - beta_type[i] / r
-#     #alpha_int[i] <- -beta_int[i] / r
-#     percentage_increase_type[i] <- 100*(exp(alpha_type[i]) - 1)
-#     #percentage_increase_int[i] <- 100*(exp(alpha_int[i]) - 1)
-#   }
-#
-#   beta_Francis <- beta_0 + beta_1*time_Francis + beta_2*time_Francis*time_Francis
-#   mu_Francis <- exp(beta_Francis)
-#   survival_Francis ~ dweib(r, mu_Francis)T(present_age_Francis, upper_age)
-#
-#   beta_Obama <- beta_0 + beta_1*time_Obama +
-#     beta_type[type_Obama] + beta_2*time_Obama*time_Obama
-#   mu_Obama <- exp(beta_Obama)
-#   survival_Obama ~ dweib(r, mu_Obama)T(present_age_Obama, upper_age)
-#
-#   beta_Naruhito <- beta_0 + beta_1*time_Naruhito + beta_type[type_Naruhito] +
-#     beta_2*time_Naruhito*time_Naruhito
-#   mu_Naruhito <- exp(beta_Naruhito)
-#   survival_Naruhito ~ dweib(r, mu_Naruhito)T(present_age_Naruhito, upper_age)
-#
-#   beta_DL <- beta_0 + beta_1*time_DL + beta_type[type_DL] + beta_2*time_DL*time_DL
-#   mu_DL <- exp(beta_DL)
-#   survival_DL ~ dweib(r, mu_DL)T(present_age_DL, upper_age)
-#
-#   beta_WC <- beta_0 + beta_1*time_WC_cent + beta_type[type_WC] + beta_2*time_WC_cent *time_WC_cent
-#   mu_WC <- exp(beta_WC)
-#   survival_WC ~ dweib(r, mu_WC)T(0, upper_age)
-#
-#   beta_sun <- beta_0 + beta_1*time_sun_cent + beta_type[type_sun] + beta_2*time_sun_cent*time_sun_cent
-#   mu_sun <- exp(beta_sun)
-#   survival_sun ~ dweib(r, mu_sun)T(0, upper_age)
-#   "
-#
-#   model_text <- paste("model{ ",likelihood, priors, predicted_survivals, "}")
-#   writeLines(model_text,con=model_file)
-#   return(model_file)
-# }
+generate_model_text_time_squared = function(priors=""){
+  model_file <- tempfile()
+
+  likelihood = "#Likelihood
+  for (i in 1:n){
+    censored[i] ~ dinterval(survival[i], censoring_limits[i])
+    survival[i] ~ dweib(r, mu[i]) # Basic Weibull assumption
+    mu[i] <- exp(beta[i])  # Defining beta as log(mu)
+    beta[i] <- beta_0 + beta_1*(x_1[i] + x_1[i]*x_1[i]) + beta_type[x_2[i]] 
+    y_pred_censored[i] ~ dweib(r, mu[i])T(present_age[i], upper_age)
+  }
+
+  #Priors
+  beta_type[1] <- 0
+  "
+
+  predicted_survivals = "
+  #Define the alphas
+  alpha_0 <- - beta_0 / r
+  alpha_1 <- - beta_1 / r
+  percentage_increase_birthyr <- 100*(exp(alpha_1) - 1)
+  for (i in 2:5) {
+    alpha_type[i] <- - beta_type[i] / r
+    percentage_increase_type[i] <- 100*(exp(alpha_type[i]) - 1)
+  }
+
+  beta_Francis <- beta_0 + beta_1*(time_Francis + time_Francis*time_Francis)
+  mu_Francis <- exp(beta_Francis)
+  survival_Francis ~ dweib(r, mu_Francis)T(present_age_Francis, upper_age)
+
+  beta_Obama <- beta_0 + beta_1*(time_Obama + time_Obama*time_Obama) + 
+    beta_type[type_Obama] 
+  mu_Obama <- exp(beta_Obama)
+  survival_Obama ~ dweib(r, mu_Obama)T(present_age_Obama, upper_age)
+
+  beta_Naruhito <- beta_0 + beta_1*(time_Naruhito + time_Naruhito*time_Naruhito) + 
+  beta_type[type_Naruhito]
+  mu_Naruhito <- exp(beta_Naruhito)
+  survival_Naruhito ~ dweib(r, mu_Naruhito)T(present_age_Naruhito, upper_age)
+
+  beta_DL <- beta_0 + beta_1*(time_DL + time_DL*time_DL) + beta_type[type_DL] 
+  mu_DL <- exp(beta_DL)
+  survival_DL ~ dweib(r, mu_DL)T(present_age_DL, upper_age)
+
+  beta_WC <- beta_0 + beta_1*(time_WC_cent + time_WC_cent *time_WC_cent) + beta_type[type_WC] 
+  mu_WC <- exp(beta_WC)
+  survival_WC ~ dweib(r, mu_WC)T(0, upper_age)
+
+  beta_sun <- beta_0 + beta_1*(time_sun_cent + time_sun_cent*time_sun_cent) + beta_type[type_sun] 
+  mu_sun <- exp(beta_sun)
+  survival_sun ~ dweib(r, mu_sun)T(0, upper_age)
+  "
+
+  model_text <- paste("model{ ",likelihood, priors, predicted_survivals, "}")
+  writeLines(model_text,con=model_file)
+  return(model_file)
+}
 ```
 
 ```{r Generate or Load Time Squared Model, eval=TRUE}
-# generate_time_squared_model = function(priors,model_name,num_iter = 250000){
-#   model_file <- generate_model_text_time_squared(priors)
-#   if (file.exists(model_name)) {
-#     load(file = model_name)
-#   }
-#   else {
-#     rjags_model_time_squared <-  jags.parallel(data = data_leaders,
-#                                   parameters.to.save = c("beta_0",
-#                                                          "beta_1",
-#                                                          "beta_type",
-#                                                          "beta_2",
-#                                                          "r",
-#                                                          "y_pred_censored",
-#                                                          "survival_Francis",
-#                                                          "survival_Obama",
-#                                                          "survival_Naruhito",
-#                                                          "survival_DL",
-#                                                          "survival_WC",
-#                                                          "survival_sun",
-#                                                          "alpha_0",
-#                                                          "alpha_1",
-#                                                          "percentage_increase_birthyr",
-#                                                          "alpha_type",
-#                                                          "alpha_2",
-#                                                          "percentage_increase_type",
-#                                                          "survival"
-#                                   ),
-#                                   n.iter = num_iter, #increase for better model output - 250K
-#                                   n.chains = 3,
-#                                   model.file = model_file)
-#     save(rjags_model_time_squared, file = model_name)
-#   }
-#   return(rjags_model_time_squared)
-# }
+generate_time_squared_model = function(priors,model_name,num_iter = 500000){
+  model_file <- generate_model_text_time_squared(priors)
+  if (file.exists(model_name)) {
+    load(file = model_name)
+  }
+  else {
+    rjags_model_time_squared <- jags(data = data_leaders,
+                                  parameters.to.save = c("beta_0",
+                                                         "beta_1",
+                                                         "beta_type",
+                                                         "r",
+                                                         "y_pred_censored",
+                                                         "survival_Francis",
+                                                         "survival_Obama",
+                                                         "survival_Naruhito",
+                                                         "survival_DL",
+                                                         "survival_WC",
+                                                         "survival_sun",
+                                                         "alpha_0",
+                                                         "alpha_1",
+                                                         "percentage_increase_birthyr",
+                                                         "alpha_type",
+                                                         "percentage_increase_type",
+                                                         "survival"
+                                  ),
+                                  n.iter = num_iter, #increase for better model output - 250K
+                                  n.chains = 3,
+                                  model.file = model_file)
+    save(rjags_model_time_squared, file = model_name)
+  }
+  return(rjags_model_time_squared)
+}
 ```
 
 ```{r eval=TRUE}
-# time_squared_priors <- "
-#   # prior on leadership type coefficients (notice there is no need to specify a prior for the baseline)
-#   for(i in 2:5) {
-#     beta_type[i] ~ dnorm(0.0, 1)
-#   }
-#
-#   # prior on intercept
-#   beta_0 ~ dnorm(0.0, 1)
-#
-#   # prior on time variable
-#   beta_1 ~ dnorm(0.0, 1)
-#   beta_2 ~ dnorm(0.0, 1)
-#
-#    # prior on r
-#   r ~ dgamma(10,0.5)
-#   "
-# Bayesian_Leaders_output_time_squared <- generate_time_squared_model(time_squared_priors,"leaders_model_time2_r_10_5e-1_beta_1.Rdata")
+time_squared_priors <- "
+  # prior on leadership type coefficients (notice there is no need to specify a prior for the baseline)
+  for(i in 2:5) {
+    beta_type[i] ~ dnorm(0.0, 1)
+  }
+
+  # prior on intercept
+  beta_0 ~ dnorm(0.0, 100)
+
+  # prior on time variable
+  beta_1 ~ dnorm(0.0, 1)
+
+   # prior on r
+  r ~ dgamma(10,0.5)
+  "
+Bayesian_Leaders_output_time_squared <- generate_time_squared_model(time_squared_priors,"leaders_model_time2_r_10_5e-1_beta_1.Rdata")
 ```
+
+$$
+\begin{aligned}
+T_i \sim  \,Weibull(r, \mu_i)\,\,\,\,\,\,\,\,\,\,\,\,\,\,\,\,  \\
+log(\mu_i) = \beta_0 + \beta_1(time_i + time_i * time_i)+ \sum_{j=2}^{5} \beta_{2j} & \ I(type_i = j) \ , &(2)
+\end{aligned}
+$$
+
+$$
+\begin{aligned}
+&\,\,\,\,\,\,\,\,\,\,\,\,r \sim  \Gamma(10, 0.5)\\ 
+&\,\,\,\,\,\,\,\,\,\beta_0\sim N(0, 100)\\ 
+\beta_1,\ \beta_{2j}&,\  \beta_{3j} \sim N(0, 1), \  j = 2, 3, 4, 5
+\end{aligned}
+$$
+
+
+```{r}
+post_summary_df_time_squared <- Bayesian_Leaders_output_time_squared$BUGSoutput$summary %>% 
+  as.data.frame() 
+rows <- c("r", "beta_0", "beta_1", 
+          "beta_type[1]", "beta_type[2]", "beta_type[3]", "beta_type[4]", "beta_type[5]"
+)
+post_summary_df_time_squared <- post_summary_df_time_squared[rows,]
+post_summary_df_time_squared <- post_summary_df_time_squared %>% 
+  tibble::rownames_to_column("Parameter") %>% 
+  mutate_if(is.numeric, round, digits = 3) %>% 
+  mutate("95% CI" = paste0("(", `2.5%`, ", ", `97.5%`,  ")")) %>% 
+  select(-(`2.5%`:`97.5%`)) %>% 
+  select(Parameter, mean, sd, `95% CI`) 
+post_summary_df_time_squared$Parameter <- c("r", "(Intercept)", "Time", "Pope", "ChinaEmp", "DalaiLama", "JapanEmp", "UsPres")
+
+post_summary_df_time_squared %>% 
+  mutate(mean = ifelse((mean == 0 & sd == 0), "(Reference)", mean),
+         sd = ifelse((mean == "(Reference)" & sd == 0),"", sd),
+         `95% CI` = ifelse((mean == "(Reference)" & sd == ""), "", `95% CI`)#,
+         #Rhat = ifelse((mean == "(Reference)" & sd == ""), "", Rhat)
+  ) %>% 
+  kableExtra::kable(booktabs = T, 
+                    caption = "Parameters obtained with Model 1, with 95\\% Credible Intervals (CI)",
+                    col.names = c("Parameter", "Mean", "Std. Dev.", "95% CI"#, "Rhat"
+                    )) %>% 
+  kable_styling(latex_options = c("hold_position")) %>% 
+  kableExtra::pack_rows("Type", 4,8) %>% 
+  row_spec(0, bold = TRUE)
+```
+
+```{r}
+alive_leaders = leaders %>% 
+  filter(Name %in% alive) %>% 
+  bind_rows(filtered_leaders %>% 
+              mutate(rownum = row_number()) %>% 
+              filter(Censored == 1))
+
+al_index = alive_leaders %>% 
+  filter(!is.na(rownum)) %>% 
+  pull(rownum) %>% 
+  paste0("y_pred_censored[", ., "]") %>% 
+  as.vector()
+
+al_names = alive_leaders %>% pull(Name) %>% str_remove_all("\\s*\\([^\\)]+\\)")
+al_cur_age = alive_leaders %>% pull(Age.Event)
+al_type = alive_leaders %>% pull(Type)
+
+alive_leaders_post_time_squared = Bayesian_Leaders_output_time_squared$BUGSoutput$summary[c("survival_Francis",
+                                                                  "survival_Obama",
+                                                                  "survival_DL",
+                                                                  "survival_Naruhito",
+                                                                  al_index), ] %>%
+  as.data.frame() %>% 
+  tibble::rownames_to_column() %>% 
+  mutate(rowname = al_names,
+         cur_age = al_cur_age,
+         type = al_type
+  ) %>% 
+  mutate_if(is.numeric, round, digits=3) 
+alive_leaders_order_time_squared <- alive_leaders_post_time_squared %>% pull(rowname)
+alive_leaders_order_time_squared <- c(alive_leaders_order_time_squared[-10],  alive_leaders_order_time_squared[10])
+alive_leaders_post_time_squared %>% 
+  slice(match(alive_leaders_order_time_squared,rowname)) %>% 
+  mutate("95% CI" = paste0("(", `2.5%`,", ", `97.5%`, ")")) %>% 
+  select(rowname, type,  cur_age, mean, `50%`, sd, "95% CI") %>% 
+  kableExtra::kbl(booktabs = TRUE, caption = "Posterior Predictions for Lifespans of Living Leaders, with 95\\% Credible Intervals (CI)", 
+                  col.names = c("Leader", "Type", "Current Age", "Mean", "Median", "Std. Dev.", "95% CI")) %>% 
+  kable_styling(position = "center",latex_options = c("hold_position")) %>% 
+  row_spec(0, bold = TRUE) %>% 
+  column_spec(column = c(3:7), latex_column_spec = "c") %>% 
+  #kable_styling(position = "center", latex_options = c("hold_position")) %>% 
+  add_header_above(c(" " = 3, "Posterior Values" = 4))  
+```
+
+
 
 
 
