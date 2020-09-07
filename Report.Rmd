@@ -1244,7 +1244,7 @@ sensitivity_plot("r")  %>%
   facet_wrap(priors~.,  scales = "free_y", nrow = 2) 
 ```
 
-While the $r$ parameter appears to be slightly more sensitive to priors, the models that it appears to differ for are used highly informative priors on r. This may have constrained our sampler from properly exploring the space. We can see evidence for this when we examine the two plots with the highly non-informative prior $r \sim exp(0.001)$, which align most strongly with our chosen prior  $r \sim \Gamma(10,0.5)$. This is true also for the Dalai Lama coefficient and Dalai Lama * Time coefficient.
+While the $r$ parameter appears to be sensitive to prior choice, the models that it appears to differ for used highly informative priors on $r$. This may have constrained our sampler from properly exploring all of the high-density probability regions of $r$. We can see evidence for this when we examine the two plots with the highly non-informative prior $r \sim exp(0.001)$, which align most strongly with our chosen prior  $r \sim \Gamma(10,0.5)$. This is true also for the Dalai Lama coefficient and Dalai Lama * Time coefficient.
 
 ```{r eval=TRUE, fig.width=12, fig.align='center'}
 sensitivity_plot("beta_1")  %>%
