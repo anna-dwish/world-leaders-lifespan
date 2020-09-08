@@ -655,7 +655,7 @@ To determine if our model has reached a stationary distribution, we first looked
 
 ### Sensitivity Analysis 
 
-In Figures 7-22 in the Appendix, we explore the posterior distributions of our $r$ parameter, coefficients, and predictions resulting from various priors, where the red lines indicate our posterior mean estimate from our final models. In this manner, we can verify our results are not specific to our prior choice [[7]][Bibliography]. The posterior distributions are roughly the same for the four different $r$ priors, each paired with two different priors on the $\beta$ coefficients. The final plot also compares the posterior distribution of our $r$ and the *time* coefficient. 
+In Figures 7-22 in the Appendix, we explore the posterior distributions of our $r$ parameter, coefficients, and predictions resulting from various priors, where the red lines indicate our posterior mean estimate from our final models. Thus, we can verify our results are not specific to our prior choice [[7]][Bibliography]. The posterior distributions are roughly the same for the four different $r$ priors, each paired with two different priors on the $\beta$ coefficients. The final plot also compares the posterior distribution of our $r$ and the *time* coefficient. 
 
 ### Standardized Residual Plots 
 
