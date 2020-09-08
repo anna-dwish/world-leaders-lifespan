@@ -1462,29 +1462,29 @@ generate_model_text_time_squared = function(priors=""){
     percentage_increase_type[i] <- 100*(exp(alpha_type[i]) - 1)
   }
 
-  beta_Francis <- beta_0 + beta_1*(time_Francis + time_Francis*time_Francis)
+  beta_Francis <- beta_0 + beta_1*time_Francis + beta_2*time_Francis*time_Francis
   mu_Francis <- exp(beta_Francis)
   survival_Francis ~ dweib(r, mu_Francis)T(present_age_Francis, upper_age)
 
-  beta_Obama <- beta_0 + beta_1*(time_Obama + time_Obama*time_Obama) + 
+  beta_Obama <- beta_0 + beta_1*time_Obama + beta_2*time_Obama*time_Obama + 
     beta_type[type_Obama] 
   mu_Obama <- exp(beta_Obama)
   survival_Obama ~ dweib(r, mu_Obama)T(present_age_Obama, upper_age)
 
-  beta_Naruhito <- beta_0 + beta_1*(time_Naruhito + time_Naruhito*time_Naruhito) + 
+  beta_Naruhito <- beta_0 + beta_1*time_Naruhito + beta_2*time_Naruhito*time_Naruhito + 
   beta_type[type_Naruhito]
   mu_Naruhito <- exp(beta_Naruhito)
   survival_Naruhito ~ dweib(r, mu_Naruhito)T(present_age_Naruhito, upper_age)
 
-  beta_DL <- beta_0 + beta_1*(time_DL + time_DL*time_DL) + beta_type[type_DL] 
+  beta_DL <- beta_0 + beta_1*time_DL + beta_2*time_DL*time_DL + beta_type[type_DL] 
   mu_DL <- exp(beta_DL)
   survival_DL ~ dweib(r, mu_DL)T(present_age_DL, upper_age)
 
-  beta_WC <- beta_0 + beta_1*(time_WC_cent + time_WC_cent *time_WC_cent) + beta_type[type_WC] 
+  beta_WC <- beta_0 + beta_1*time_WC_cent + beta_2*time_WC_cent*time_WC_cent + beta_type[type_WC] 
   mu_WC <- exp(beta_WC)
   survival_WC ~ dweib(r, mu_WC)T(0, upper_age)
 
-  beta_sun <- beta_0 + beta_1*(time_sun_cent + time_sun_cent*time_sun_cent) + beta_type[type_sun] 
+  beta_sun <- beta_0 + beta_1*time_sun_cent + beta_2*time_sun_cent*time_sun_cent + beta_type[type_sun] 
   mu_sun <- exp(beta_sun)
   survival_sun ~ dweib(r, mu_sun)T(0, upper_age)
   "
@@ -1496,7 +1496,7 @@ generate_model_text_time_squared = function(priors=""){
 ```
 
 ```{r Generate or Load Time Squared Model, eval=TRUE}
-generate_time_squared_model = function(priors,model_name,num_iter = 500000){
+generate_time_squared_model = function(priors,model_name,num_iter = 100000){
   model_file <- generate_model_text_time_squared(priors)
   if (file.exists(model_name)) {
     load(file = model_name)
@@ -1549,7 +1549,7 @@ time_squared_priors <- "
    # prior on r
   r ~ dgamma(10,0.5)
   "
-Bayesian_Leaders_output_time_squared <- generate_time_squared_model(time_squared_priors,"leaders_model_time2_r_10_5e-1_beta_1.Rdata",250000)
+Bayesian_Leaders_output_time_squared <- generate_time_squared_model(time_squared_priors,"leaders_model_time2_r_10_5e-1_beta_1.Rdata")
 ```
 
 $$
@@ -1640,7 +1640,6 @@ alive_leaders_post_time_squared %>%
   column_spec(column = c(3:7), latex_column_spec = "c") %>% 
   #kable_styling(position = "center", latex_options = c("hold_position")) %>% 
   add_header_above(c(" " = 3, "Posterior Values" = 4))  
-```
 ```
 
 
